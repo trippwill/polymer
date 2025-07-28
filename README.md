@@ -231,7 +231,43 @@ model := poly.WrapAtom(atom)
 
 ## Debugging and Tracing
 
-Use the trace package for detailed logging:
+Polymer provides comprehensive observability features for debugging and monitoring your applications.
+
+### Enhanced Observability System (Recommended)
+
+The new observability package provides structured tracing, performance monitoring, and flexible configuration:
+
+```go
+import "github.com/trippwill/polymer/observability"
+
+// Quick setup for development
+traced := observability.QuickTrace(myAtom, observability.TraceLevelInfo)
+
+// Advanced configuration with multiple tracers
+config := observability.NewBuilder().
+    WithLevel(observability.TraceLevelDebug).
+    WithFileTracer("app.log", observability.TraceLevelInfo, true).    // JSON file
+    WithStderrTracer(observability.TraceLevelError, false).           // Console errors
+    WithMetadata("service", "my-app").
+    Build()
+
+traced := observability.WithObservability(myAtom, config)
+
+// Add custom events
+traced.TraceCustomEvent("user.action", "Button clicked", observability.TraceLevelInfo, nil)
+```
+
+Key features:
+- **Structured tracing** with correlation IDs and hierarchical spans
+- **Multiple backends** (memory, file, console, JSON)
+- **Performance monitoring** with timing and duration tracking
+- **Configurable levels** (Off, Error, Warn, Info, Debug)
+- **Zero overhead** when disabled
+- **Custom events** for application-specific tracing
+
+### Legacy Tracing (Backward Compatible)
+
+Use the trace package for simple logging:
 
 ```go
 import "github.com/trippwill/polymer/trace"
@@ -242,6 +278,13 @@ logger := log.New(os.Stderr, "debug: ", log.LstdFlags)
 // Apply logging to your atom
 traced := poly.WithLens(myAtom, trace.WithLogging(logger)...)
 ```
+
+### Examples
+
+- **Basic Example**: See `/examples/wizard/` for traditional lens-based tracing
+- **Advanced Example**: See `/examples/observability_demo/` for comprehensive observability features
+
+For detailed documentation, see the [observability package README](observability/README.md).
 
 ## Building and Running
 
