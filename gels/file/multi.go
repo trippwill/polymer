@@ -97,27 +97,26 @@ func NewMultiSelector(config Config) *MultiSelector {
 	}
 }
 
-func (ms MultiSelector) updateSelectedList() MultiSelector {
+func (ms *MultiSelector) updateSelectedList() {
 	items := make([]list.Item, 0, len(ms.selected))
 	for _, item := range ms.selected {
 		items = append(items, item)
 	}
 	ms.selectedList.SetItems(items)
 	ms.selectedList.Title = fmt.Sprintf("Selected Files (%d)", len(ms.selected))
-	return ms
 }
 
-func (ms MultiSelector) addSelection(path, name string) MultiSelector {
+func (ms *MultiSelector) addSelection(path, name string) {
 	ms.selected[path] = SelectedFileItem{
 		Name: name,
 		Path: path,
 	}
-	return ms.updateSelectedList()
+	ms.updateSelectedList()
 }
 
-func (ms MultiSelector) removeSelection(path string) MultiSelector {
+func (ms *MultiSelector) removeSelection(path string) {
 	delete(ms.selected, path)
-	return ms.updateSelectedList()
+	ms.updateSelectedList()
 }
 
 func (ms MultiSelector) getSelectedPaths() []string {
@@ -234,7 +233,7 @@ func (ms MultiSelector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 			if ms.showingSelection {
 				// Remove selected item from selection list
 				if selected, ok := ms.selectedList.SelectedItem().(SelectedFileItem); ok {
-					ms = ms.removeSelection(selected.Path)
+					ms.removeSelection(selected.Path)
 				}
 				return ms, nil
 			}
@@ -248,7 +247,7 @@ func (ms MultiSelector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 					if lastSlash := strings.LastIndex(path, "/"); lastSlash >= 0 {
 						name = path[lastSlash+1:]
 					}
-					ms = ms.addSelection(path, name)
+					ms.addSelection(path, name)
 				}
 				return ms, nil
 			}
@@ -271,7 +270,7 @@ func (ms MultiSelector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 			if lastSlash := strings.LastIndex(path, "/"); lastSlash >= 0 {
 				name = path[lastSlash+1:]
 			}
-			ms = ms.addSelection(path, name)
+			ms.addSelection(path, name)
 		}
 
 		return ms, cmd
