@@ -14,9 +14,21 @@ File selector gels provide file and directory selection capabilities for Polymer
 - **Custom Messages**: Uses proper message passing instead of notifications
 - **Visual Feedback**: Clear indication of selected items and current directory
 
+## Screenshots
+
+### Main Menu
+![Main Menu](https://github.com/user-attachments/assets/5736cf03-4c67-43ed-9c76-d7bba31b7bbb)
+
+The main menu shows all available file selector options, allowing users to choose between single file selection, directory selection, multi-file selection, and mixed selection modes.
+
 ## Single File Selector
 
 The single file selector wraps `bubbles/filepicker` for Polymer integration.
+
+### Screenshot
+![Single File Selector](https://github.com/user-attachments/assets/3bb05f51-5d23-4939-bcc7-80e9b446882a)
+
+The single file selector provides a clean interface for browsing directories and selecting individual files. It shows directories with folder icons (📁) and files with document icons (📄), including support for hidden files when enabled.
 
 ### Usage
 
@@ -75,6 +87,18 @@ Standard bubbles/filepicker key bindings:
 ## Multi-File Selector
 
 The multi-file selector combines `bubbles/filepicker` with `bubbles/list` to provide a dual-view interface for selecting multiple files.
+
+### Screenshots
+
+#### File Picker View
+![Multi-File Picker View](https://github.com/user-attachments/assets/eaaea596-9fba-40ef-9647-7c53f45f27f3)
+
+The file picker view allows users to browse directories and add files to their selection using the Space bar. Selected files are marked with checkmarks (✓) and the current selection count is displayed.
+
+#### Selection List View  
+![Selection List View](https://github.com/user-attachments/assets/8bffbbdf-7951-49ce-910a-76f1e1c573e8)
+
+The selection list view shows all currently selected files and allows users to review and manage their selections. Users can remove items with the Delete key or confirm their selection with Enter.
 
 ### Usage
 
