@@ -2,7 +2,55 @@
 
 Gels are reusable UI components for Polymer applications. They implement the `Atom` interface and can be easily composed into larger applications.
 
-## Menu Gel
+## File Selector Gels
+
+**Package**: `github.com/trippwill/polymer/gels/file`
+
+File and directory selection components with support for both single and multiple selection modes.
+
+### Features
+
+- File system navigation and browsing
+- Single and multi-selection modes
+- Configurable file/directory filtering
+- Visual feedback for selected items
+- Remove items from multi-selection
+- Hidden file visibility control
+
+### Usage
+
+```go
+import "github.com/trippwill/polymer/gels/file"
+
+// Single file selector
+fileSelector := file.NewSelector(file.Config{
+    Title:      "Select File",
+    FileType:   file.FilesOnly,
+    ShowHidden: false,
+})
+
+// Multi-file selector  
+multiSelector := file.NewMultiSelector(file.Config{
+    Title:      "Select Multiple Files",
+    FileType:   file.FilesAndDirs,
+    ShowHidden: true,
+})
+```
+
+### Key Bindings
+
+**Single Selector:**
+- `↑/↓/j/k` - Navigate
+- `Enter` - Select/enter directory
+- `Backspace` - Parent directory
+- `Esc` - Go back
+
+**Multi Selector (additional):**
+- `Space` - Toggle selection
+- `Ctrl+A` - Select all
+- `Ctrl+D` - Deselect all
+- `Delete` - Remove from selection
+
 
 **Package**: `github.com/trippwill/polymer/gels/menu`
 
@@ -153,6 +201,11 @@ Future gel components may include:
 - **Progress**: Progress bars and spinners
 - **Tree**: Hierarchical tree navigation
 - **Split**: Split pane layouts
+
+## Completed Gels
+
+- **Menu**: ✅ List-based navigation menu
+- **File Selector**: ✅ Single and multi-file/directory selection
 
 ## Contributing Gels
 
