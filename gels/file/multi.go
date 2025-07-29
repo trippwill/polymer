@@ -2,19 +2,35 @@ package file
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	poly "github.com/trippwill/polymer"
 )
 
-// MultiSelector extends Selector to support multiple selections
+// SelectedFileItem represents a selected file in the selection list
+type SelectedFileItem struct {
+	Name string
+	Path string
+}
+
+func (s SelectedFileItem) Title() string       { return s.Name }
+func (s SelectedFileItem) Description() string { return s.Path }
+func (s SelectedFileItem) FilterValue() string { return s.Name }
+
+var _ list.DefaultItem = SelectedFileItem{}
+
+// MultiSelector combines filepicker and list for multi-selection
 type MultiSelector struct {
-	*Selector
-	selected    map[string]FileItem // map of path -> FileItem for selected items
-	showingHelp bool
+	filepicker  filepicker.Model
+	selectedList list.Model
+	config      Config
+	selected    map[string]SelectedFileItem // map of path -> item for selected items
+	name        string
+	showingSelection bool // toggle between filepicker and selection list
 }
 
 // NewMultiSelector creates a new multi-file selector
@@ -23,226 +39,204 @@ func NewMultiSelector(config Config) *MultiSelector {
 		config.Title = "Select Files"
 	}
 
-	selector := NewSelector(config)
-	ms := &MultiSelector{
-		Selector: selector,
-		selected: make(map[string]FileItem),
+	// Set up filepicker
+	fp := filepicker.New()
+	fp.ShowHidden = config.ShowHidden
+	fp.ShowSize = true
+	fp.ShowPermissions = false
+	
+	if config.CurrentDir != "" {
+		fp.CurrentDirectory = config.CurrentDir
 	}
 
-	ms.name = config.Title
-	ms.setupMultiList()
-	return ms
-}
+	// Configure file/directory permissions based on FileType
+	switch config.FileType {
+	case FilesOnly:
+		fp.FileAllowed = true
+		fp.DirAllowed = false
+	case DirsOnly:
+		fp.FileAllowed = false
+		fp.DirAllowed = true
+	case FilesAndDirs:
+		fp.FileAllowed = true
+		fp.DirAllowed = true
+	}
 
-func (ms *MultiSelector) setupMultiList() {
-	ms.setupList() // Call parent setup
-	
-	// Override help to include multi-selection keys
-	ms.list.AdditionalShortHelpKeys = func() []key.Binding {
+	// Set up selection list
+	selectedList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	selectedList.Title = "Selected Files"
+	selectedList.AdditionalShortHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			key.NewBinding(
-				key.WithKeys("enter"),
-				key.WithHelp("enter", "navigate/confirm"),
-			),
-			key.NewBinding(
-				key.WithKeys("space"),
-				key.WithHelp("space", "toggle selection"),
-			),
-			key.NewBinding(
-				key.WithKeys("ctrl+a"),
-				key.WithHelp("ctrl+a", "select all"),
-			),
-			key.NewBinding(
-				key.WithKeys("ctrl+d"),
-				key.WithHelp("ctrl+d", "deselect all"),
-			),
-			key.NewBinding(
 				key.WithKeys("delete"),
-				key.WithHelp("del", "remove selected"),
+				key.WithHelp("del", "remove"),
+			),
+			key.NewBinding(
+				key.WithKeys("tab"),
+				key.WithHelp("tab", "toggle view"),
+			),
+			key.NewBinding(
+				key.WithKeys("enter"),
+				key.WithHelp("enter", "confirm selection"),
 			),
 			key.NewBinding(
 				key.WithKeys("esc"),
-				key.WithHelp("esc", "go back"),
-			),
-			key.NewBinding(
-				key.WithKeys("backspace"),
-				key.WithHelp("backspace", "parent dir"),
+				key.WithHelp("esc", "cancel"),
 			),
 		}
 	}
 
-	// Update title to show selection count
-	ms.updateTitle()
-}
-
-func (ms *MultiSelector) updateTitle() {
-	baseTitle := fmt.Sprintf("%s - %s", ms.config.Title, ms.currentDir)
-	if len(ms.selected) > 0 {
-		ms.list.Title = fmt.Sprintf("%s (%d selected)", baseTitle, len(ms.selected))
-	} else {
-		ms.list.Title = baseTitle
+	return &MultiSelector{
+		filepicker:  fp,
+		selectedList: selectedList,
+		config:      config,
+		selected:    make(map[string]SelectedFileItem),
+		name:        config.Title,
+		showingSelection: false,
 	}
 }
 
-func (ms *MultiSelector) isSelected(item FileItem) bool {
-	_, exists := ms.selected[item.Path]
-	return exists
-}
-
-func (ms *MultiSelector) toggleSelection(item FileItem) {
-	if ms.isSelected(item) {
-		delete(ms.selected, item.Path)
-	} else {
-		ms.selected[item.Path] = item
+func (ms *MultiSelector) updateSelectedList() {
+	items := make([]list.Item, 0, len(ms.selected))
+	for _, item := range ms.selected {
+		items = append(items, item)
 	}
-	ms.updateTitle()
+	ms.selectedList.SetItems(items)
+	ms.selectedList.Title = fmt.Sprintf("Selected Files (%d)", len(ms.selected))
 }
 
-func (ms *MultiSelector) selectAll() {
-	for _, item := range ms.list.Items() {
-		if fileItem, ok := item.(FileItem); ok {
-			// Only select files/dirs that match our filter criteria and aren't parent dir
-			if fileItem.Name != ".." {
-				switch ms.config.FileType {
-				case FilesOnly:
-					if !fileItem.IsDir {
-						ms.selected[fileItem.Path] = fileItem
-					}
-				case DirsOnly:
-					if fileItem.IsDir {
-						ms.selected[fileItem.Path] = fileItem
-					}
-				case FilesAndDirs:
-					ms.selected[fileItem.Path] = fileItem
-				}
-			}
-		}
+func (ms *MultiSelector) addSelection(path, name string) {
+	ms.selected[path] = SelectedFileItem{
+		Name: name,
+		Path: path,
 	}
-	ms.updateTitle()
+	ms.updateSelectedList()
 }
 
-func (ms *MultiSelector) deselectAll() {
-	ms.selected = make(map[string]FileItem)
-	ms.updateTitle()
+func (ms *MultiSelector) removeSelection(path string) {
+	delete(ms.selected, path)
+	ms.updateSelectedList()
 }
 
-func (ms *MultiSelector) getSelectedList() []string {
-	var selected []string
+func (ms *MultiSelector) getSelectedPaths() []string {
+	var paths []string
 	for path := range ms.selected {
-		selected = append(selected, path)
+		paths = append(paths, path)
 	}
-	return selected
+	return paths
 }
 
 var _ poly.Atom = (*MultiSelector)(nil)
 
+func (ms *MultiSelector) Name() string { 
+	return ms.name 
+}
+
+func (ms *MultiSelector) Init() tea.Cmd {
+	return ms.filepicker.Init()
+}
+
 func (ms *MultiSelector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		ms.width = msg.Width
-		ms.height = msg.Height
-		ms.list.SetSize(msg.Width, msg.Height)
+		ms.filepicker.SetHeight(msg.Height)
+		ms.selectedList.SetSize(msg.Width, msg.Height)
 		return ms, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "space":
-			if selected, ok := ms.list.SelectedItem().(FileItem); ok {
-				// Don't allow selecting parent directory
-				if selected.Name != ".." {
-					ms.toggleSelection(selected)
-				}
-			}
+		case "tab":
+			// Toggle between filepicker and selection views
+			ms.showingSelection = !ms.showingSelection
 			return ms, nil
-
-		case "ctrl+a":
-			ms.selectAll()
-			return ms, nil
-
-		case "ctrl+d":
-			ms.deselectAll()
-			return ms, nil
-
-		case "delete":
-			if selected, ok := ms.list.SelectedItem().(FileItem); ok {
-				if ms.isSelected(selected) {
-					delete(ms.selected, selected.Path)
-					ms.updateTitle()
-				}
-			}
-			return ms, nil
-
-		case "enter":
-			if selected, ok := ms.list.SelectedItem().(FileItem); ok {
-				if selected.IsDir {
-					// Navigate into directory
-					ms.currentDir = selected.Path
-					ms.Selector.currentDir = selected.Path // Keep parent in sync
-					ms.setupMultiList()
-					if ms.width > 0 && ms.height > 0 {
-						ms.list.SetSize(ms.width, ms.height)
-					}
-					return ms, nil
-				} else if len(ms.selected) > 0 {
-					// Complete selection with current selections
-					selectedPaths := ms.getSelectedList()
-					return ms, tea.Sequence(
-						poly.Notify(poly.InfoLevel, fmt.Sprintf("Selected %d files: %s", len(selectedPaths), strings.Join(selectedPaths, ", "))),
-						poly.Pop(),
-					)
-				} else {
-					// Add current file to selection if none selected
-					ms.toggleSelection(selected)
-					return ms, nil
-				}
-			}
-
-		case "backspace":
-			// Navigate to parent directory
-			parent := filepath.Dir(ms.currentDir)
-			if parent != ms.currentDir { // Avoid infinite loop at root
-				ms.currentDir = parent
-				ms.Selector.currentDir = parent // Keep parent in sync
-				ms.setupMultiList()
-				if ms.width > 0 && ms.height > 0 {
-					ms.list.SetSize(ms.width, ms.height)
-				}
-				return ms, nil
-			}
 
 		case "esc":
+			if ms.showingSelection {
+				ms.showingSelection = false
+				return ms, nil
+			}
+			// Complete selection or go back
 			if len(ms.selected) > 0 {
-				// Show confirmation or complete selection
-				selectedPaths := ms.getSelectedList()
+				paths := ms.getSelectedPaths()
 				return ms, tea.Sequence(
-					poly.Notify(poly.InfoLevel, fmt.Sprintf("Selected %d files: %s", len(selectedPaths), strings.Join(selectedPaths, ", "))),
+					poly.FileSelection(paths, "files"),
 					poly.Pop(),
 				)
 			}
 			return ms, poly.Pop()
+
+		case "enter":
+			if ms.showingSelection && len(ms.selected) > 0 {
+				// Confirm selection from selection view
+				paths := ms.getSelectedPaths()
+				return ms, tea.Sequence(
+					poly.FileSelection(paths, "files"),
+					poly.Pop(),
+				)
+			}
+			// Handle in filepicker view below
+
+		case "delete":
+			if ms.showingSelection {
+				// Remove selected item from selection list
+				if selected, ok := ms.selectedList.SelectedItem().(SelectedFileItem); ok {
+					ms.removeSelection(selected.Path)
+				}
+				return ms, nil
+			}
+
+		case "space":
+			if !ms.showingSelection {
+				// Add current file to selection if in filepicker view
+				if path := ms.filepicker.Path; path != "" {
+					// Extract filename from path for display
+					name := path
+					if lastSlash := strings.LastIndex(path, "/"); lastSlash >= 0 {
+						name = path[lastSlash+1:]
+					}
+					ms.addSelection(path, name)
+				}
+				return ms, nil
+			}
 		}
 	}
 
-	var cmd tea.Cmd
-	ms.list, cmd = ms.list.Update(msg)
-	return ms, cmd
+	// Update the appropriate view
+	if ms.showingSelection {
+		var cmd tea.Cmd
+		ms.selectedList, cmd = ms.selectedList.Update(msg)
+		return ms, cmd
+	} else {
+		var cmd tea.Cmd
+		ms.filepicker, cmd = ms.filepicker.Update(msg)
+
+		// Check if user selected a file in filepicker
+		if didSelect, path := ms.filepicker.DidSelectFile(msg); didSelect {
+			// Extract filename from path for display
+			name := path
+			if lastSlash := strings.LastIndex(path, "/"); lastSlash >= 0 {
+				name = path[lastSlash+1:]
+			}
+			ms.addSelection(path, name)
+		}
+
+		return ms, cmd
+	}
 }
 
 func (ms *MultiSelector) View() string {
-	baseView := ms.list.View()
-	
-	// Add selection summary at the bottom if there are selections
-	if len(ms.selected) > 0 {
-		summary := fmt.Sprintf("\n[Selected: %d items]", len(ms.selected))
-		if len(ms.selected) <= 3 {
-			var names []string
-			for _, item := range ms.selected {
-				names = append(names, item.Name)
-			}
-			summary += fmt.Sprintf(" %s", strings.Join(names, ", "))
+	if ms.showingSelection {
+		if len(ms.selected) == 0 {
+			return ms.selectedList.View() + "\n\nNo files selected. Press Tab to return to file picker."
 		}
-		baseView += summary
+		return ms.selectedList.View() + "\n\nPress Tab to return to file picker, Enter to confirm selection."
 	}
 	
-	return baseView
+	view := ms.filepicker.View()
+	if len(ms.selected) > 0 {
+		view += fmt.Sprintf("\n\nSelected: %d files (Press Tab to view, Space to add current file)", len(ms.selected))
+	} else {
+		view += "\n\nPress Space to select files, Tab to view selections"
+	}
+	return view
 }

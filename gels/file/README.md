@@ -1,19 +1,22 @@
 # File Selector Gels
 
-File selector gels provide file and directory selection capabilities for Polymer applications. They support both single and multiple selection modes with full keyboard navigation.
+File selector gels provide file and directory selection capabilities for Polymer applications, built on top of the Bubble Tea ecosystem's filepicker component. They support both single and multiple selection modes with full keyboard navigation.
 
 ## Features
 
+- **Built on Bubbles**: Uses the well-tested `bubbles/filepicker` component
 - **File System Navigation**: Browse directories, navigate up/down the directory tree
 - **Configurable Selection**: Select files only, directories only, or both
-- **Single Selection**: Select one file or directory at a time
-- **Multi-Selection**: Select multiple files/directories with visual feedback
+- **Single Selection**: Select one file or directory at a time using bubbles/filepicker
+- **Multi-Selection**: Select multiple files/directories with dual-view interface
 - **Hidden Files**: Configurable display of hidden files (starting with '.')
 - **Keyboard Navigation**: Full keyboard support with intuitive key bindings
+- **Custom Messages**: Uses proper message passing instead of notifications
 - **Visual Feedback**: Clear indication of selected items and current directory
-- **Remove from Selection**: Ability to remove items from multi-selection
 
 ## Single File Selector
+
+The single file selector wraps `bubbles/filepicker` for Polymer integration.
 
 ### Usage
 
@@ -28,8 +31,15 @@ selector := file.NewSelector(file.Config{
     ShowHidden: false,             // Whether to show hidden files
 })
 
-// Use in a Chain for navigation
-nav := poly.NewChain(selector)
+// Handle selection results
+func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case poly.FileSelectionMsg:
+        // Handle file selection
+        fmt.Printf("Selected %s: %s\n", msg.Type, msg.Files[0])
+    }
+    return m, nil
+}
 ```
 
 ### Configuration Options
@@ -53,14 +63,18 @@ const (
 
 ### Key Bindings
 
+Standard bubbles/filepicker key bindings:
+
 - `↑/↓` or `j/k` - Navigate up/down in file list
-- `/` - Start filtering/search
-- `Enter` - Select file or enter directory
+- `Enter` - Select file or enter directory  
 - `Esc` - Go back to previous screen
-- `Backspace` - Navigate to parent directory
+- `/` - Start filtering/search (if enabled)
+- `h/l` - Navigate to parent/child directory
 - `q` - Quit application
 
 ## Multi-File Selector
+
+The multi-file selector combines `bubbles/filepicker` with `bubbles/list` to provide a dual-view interface for selecting multiple files.
 
 ### Usage
 
@@ -73,25 +87,41 @@ multiSelector := file.NewMultiSelector(file.Config{
     FileType:   file.FilesOnly,
     ShowHidden: false,
 })
+
+// Handle selection results
+func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case poly.FileSelectionMsg:
+        // Handle multiple file selection
+        fmt.Printf("Selected %d %ss: %v\n", len(msg.Files), msg.Type, msg.Files)
+    }
+    return m, nil
+}
 ```
 
 ### Key Bindings
 
-All single selector keys plus:
+Filepicker view:
+- All standard filepicker keys plus:
+- `Space` - Add current file to selection
+- `Tab` - Switch to selection list view
+- `Esc` - Complete selection (if files selected) or go back
 
-- `Space` - Toggle selection of current item
-- `Ctrl+A` - Select all items in current directory
-- `Ctrl+D` - Deselect all items
-- `Delete` - Remove currently highlighted item from selection
-- `Enter` - Complete selection (when items are selected) or navigate into directory
+Selection list view:
+- `↑/↓` - Navigate selection list
+- `Delete` - Remove item from selection
+- `Tab` - Switch back to filepicker view
+- `Enter` - Confirm selection
+- `Esc` - Switch back to filepicker view
 
-### Selection Feedback
+### Selection Interface
 
-The multi-selector provides clear visual feedback:
+The multi-selector provides two views:
 
-- **Title Updates**: Shows count of selected items: `"Select Files (3 selected)"`
-- **Selection Summary**: Displays selected filenames at bottom of screen
-- **Current Directory**: Always shows current path in title
+1. **Filepicker View**: Browse and add files using the standard filepicker
+2. **Selection View**: Review and manage selected files using a list
+
+Switch between views with `Tab`. The bottom of the screen shows selection status and available actions.
 
 ## Example
 
@@ -102,12 +132,41 @@ import (
     "fmt"
     "log"
     "os"
+    "strings"
 
     tea "github.com/charmbracelet/bubbletea"
     poly "github.com/trippwill/polymer"
     "github.com/trippwill/polymer/gels/file"
     "github.com/trippwill/polymer/gels/menu"
 )
+
+// Handler that displays file selection results
+type FileHandler struct {
+    *menu.Model
+    lastSelection string
+}
+
+func (h *FileHandler) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+    switch msg := msg.(type) {
+    case poly.FileSelectionMsg:
+        if len(msg.Files) == 1 {
+            h.lastSelection = fmt.Sprintf("Selected %s: %s", msg.Type, msg.Files[0])
+        } else {
+            h.lastSelection = fmt.Sprintf("Selected %d files: %s", 
+                len(msg.Files), strings.Join(msg.Files, ", "))
+        }
+        return h, nil
+    }
+    return h.Model.Update(msg)
+}
+
+func (h *FileHandler) View() string {
+    view := h.Model.View()
+    if h.lastSelection != "" {
+        view += "\n\n" + h.lastSelection
+    }
+    return view
+}
 
 func main() {
     // Single file selector
@@ -118,8 +177,8 @@ func main() {
 
     // Multi-file selector
     multiFile := file.NewMultiSelector(file.Config{
-        Title:    "Select Multiple Files",
-        FileType: file.FilesAndDirs,
+        Title:      "Select Multiple Files",
+        FileType:   file.FilesAndDirs,
         ShowHidden: true,
     })
 
@@ -129,13 +188,15 @@ func main() {
         FileType: file.DirsOnly,
     })
 
-    // Create menu
-    mainMenu := menu.NewMenu(
-        "File Selector Demo",
-        menu.NewMenuItem(singleFile, "Single File Selection"),
-        menu.NewMenuItem(multiFile, "Multiple File Selection"),
-        menu.NewMenuItem(dirSelector, "Directory Selection"),
-    )
+    // Create menu with selection handler
+    mainMenu := &FileHandler{
+        Model: menu.NewMenu(
+            "File Selector Demo",
+            menu.NewMenuItem(singleFile, "Single File Selection"),
+            menu.NewMenuItem(multiFile, "Multiple File Selection"),
+            menu.NewMenuItem(dirSelector, "Directory Selection"),
+        ),
+    }
 
     // Run application
     host := poly.NewHost("File Selector", poly.NewChain(mainMenu))
@@ -149,29 +210,30 @@ func main() {
 File selectors integrate seamlessly with Polymer's navigation system:
 
 - **Chain Navigation**: Use `poly.Push()` to add selectors to the navigation stack
-- **Notifications**: Selection results are sent via `poly.Notify()`
+- **Custom Messages**: Selection results are sent via `poly.FileSelectionMsg`
 - **Lifecycle Hooks**: Support all Polymer lens features for debugging
-- **Error Handling**: Graceful handling of file system errors
+- **Error Handling**: Graceful handling of file system errors via bubbles/filepicker
 
-## File Selection Results
+## Message Types
 
-When a selection is made, the selector:
-
-1. Sends a notification with selected file paths
-2. Automatically pops back to the previous screen
-3. Returns the full path(s) of selected items
-
-For multi-selection, the notification includes all selected file paths in a comma-separated list.
-
-## Customization
-
-The file selector uses Bubble Tea's list component and can be customized:
+File selectors use custom message types for proper data flow:
 
 ```go
-selector := file.NewSelector(config)
+// FileSelectionMsg represents a file selection result
+type FileSelectionMsg struct {
+    Files []string  // Array of selected file paths
+    Type  string    // "file", "directory", or "files"
+}
 
-// Access underlying list for customization
-// Note: This would require exposing the list field or adding methods
+// Create selection message
+poly.FileSelection([]string{"/path/to/file"}, "file")
 ```
 
-Both single and multi-selectors follow Polymer's architectural patterns and can be easily extended or customized for specific use cases.
+## Architecture
+
+- **Single Selector**: Wraps `bubbles/filepicker` directly
+- **Multi Selector**: Combines `bubbles/filepicker` + `bubbles/list`
+- **Polymer Integration**: Custom Atom implementations with proper message passing
+- **Configuration**: Shared Config struct for consistent API
+
+This approach follows Polymer's principle of building on proven Bubble Tea ecosystem components while providing clean integration and enhanced functionality.

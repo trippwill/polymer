@@ -30,3 +30,19 @@ func ContextUpdate[T any](ctx T) tea.Cmd {
 		return ContextMsg[T]{Context: ctx}
 	}
 }
+
+// FileSelectionMsg represents a file selection result
+type FileSelectionMsg struct {
+	Files []string
+	Type  string // "file", "directory", or "files"
+}
+
+// FileSelection creates a command to send file selection results
+func FileSelection(files []string, selectionType string) tea.Cmd {
+	return func() tea.Msg {
+		return FileSelectionMsg{
+			Files: files,
+			Type:  selectionType,
+		}
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	poly "github.com/trippwill/polymer"
@@ -12,7 +13,44 @@ import (
 	"github.com/trippwill/polymer/trace"
 )
 
-// QuitAtom is a simple Atom that quits the application immediately.
+// SelectionHandler wraps a menu to handle file selection results
+type SelectionHandler struct {
+	*menu.Model
+	lastSelection string
+}
+
+func NewSelectionHandler(title string, items ...menu.Item) *SelectionHandler {
+	return &SelectionHandler{
+		Model: menu.NewMenu(title, items...),
+	}
+}
+
+func (s *SelectionHandler) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+	switch msg := msg.(type) {
+	case poly.FileSelectionMsg:
+		// Handle file selection results
+		if len(msg.Files) == 1 {
+			s.lastSelection = fmt.Sprintf("Selected %s: %s", msg.Type, msg.Files[0])
+		} else {
+			s.lastSelection = fmt.Sprintf("Selected %d %ss: %s", len(msg.Files), msg.Type, strings.Join(msg.Files, ", "))
+		}
+		return s, nil
+	}
+	
+	return s.Model.Update(msg)
+}
+
+func (s *SelectionHandler) View() string {
+	view := s.Model.View()
+	if s.lastSelection != "" {
+		view += "\n\n" + s.lastSelection
+	}
+	return view
+}
+
+func (s *SelectionHandler) Name() string {
+	return s.Model.Name()
+}
 type QuitAtom struct{}
 
 func (q QuitAtom) Init() tea.Cmd                           { return tea.Quit }
@@ -63,7 +101,7 @@ func main() {
 
 	// Create the main menu
 	root := poly.NewChain(
-		menu.NewMenu(
+		NewSelectionHandler(
 			"File Selector Demo",
 			menu.NewMenuItem(singleFileSelector, "Single File Selection"),
 			menu.NewMenuItem(singleDirSelector, "Single Directory Selection"),
