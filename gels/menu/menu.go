@@ -78,7 +78,10 @@ func (m Model) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if selected, ok := m.list.SelectedItem().(Item); ok && selected.Atom != nil {
-				return m, poly.Push(selected.Atom)
+				return m, tea.Sequence(
+					poly.Notify(poly.InfoLevel, "selected: "+selected.Name()),
+					poly.Push(selected.Atom),
+				)
 			}
 
 		case "esc":

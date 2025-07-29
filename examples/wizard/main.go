@@ -85,25 +85,25 @@ func main() {
 		os.Exit(1)
 	}
 	defer f.Close()
-	logger := log.New(f, "polymer ", log.LstdFlags)
+	logger := log.New(f, "polymer: ", log.LstdFlags)
 
-	// Create the main menu using the menu molecule
-	mainMenu := menu.NewMenu(
-		"Main Menu",
-		menu.NewMenuItem(NamePromptScreen{}, "Run the Name Wizard"),
-		menu.NewMenuItem(QuitAtom{}, "Exit Application"),
-	)
-
+	// Create the main menu using the menu gel
 	// Wrap the menu in its own navigation chain
-	nav := poly.NewChain(
-		mainMenu,
+	root := poly.NewChain(
+		menu.NewMenu(
+			"Main Menu",
+			menu.NewMenuItem(NamePromptScreen{}, "Run the Name Wizard"),
+			menu.NewMenuItem(QuitAtom{}, "Exit Application"),
+		),
 	)
-
-	// Attach logging hooks to every stage of navigation
-	traced := poly.WithLens(nav, trace.WithLogging(logger)...)
 
 	// Create the host and start the Bubble Tea program
-	host := poly.NewHost(traced, "PolymerIntegrationExample")
+	host := poly.NewHost(
+		"Polymer Integration Example",
+		root,
+		trace.WithBasicLogging(logger, poly.TraceLevel)...,
+	)
+
 	p := tea.NewProgram(host)
 	if _, err := p.Run(); err != nil {
 		logger.Fatalf("Application failed: %v", err)

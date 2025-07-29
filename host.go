@@ -9,7 +9,15 @@ type Host struct {
 	state Atom
 }
 
-func NewHost(root Atom, name string) *Host {
+func NewHost(name string, root Atom, options ...LensOption) *Host {
+	if root == nil {
+		panic("root state cannot be nil")
+	}
+
+	if len(options) > 0 {
+		root = LensWrap(root, options...)
+	}
+
 	return &Host{
 		name:  name,
 		state: root,
@@ -19,7 +27,10 @@ func NewHost(root Atom, name string) *Host {
 var _ tea.Model = Host{}
 
 func (h Host) Init() tea.Cmd {
-	return OptionalInit(h.state)
+	return tea.Batch(
+		tea.SetWindowTitle(h.name),
+		OptionalInit(h.state),
+	)
 }
 
 func (h Host) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -31,8 +42,8 @@ func (h Host) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	next, cmd := h.state.Update(msg)
-	h.state = next
+	var cmd tea.Cmd
+	h.state, cmd = h.state.Update(msg)
 	return h, cmd
 }
 

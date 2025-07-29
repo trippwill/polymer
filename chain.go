@@ -12,6 +12,7 @@ type Chain struct {
 	name  string
 }
 
+// Messages for the Chain to handle state changes.
 type (
 	PushMsg    struct{ State Atom }
 	PopMsg     struct{}
@@ -21,15 +22,19 @@ type (
 
 var ErrChainEmpty = fmt.Errorf("chain is empty")
 
+// PushMsg, PopMsg, ReplaceMsg, and ResetMsg are used to manipulate the Chain's stack.
 func Push(atom Atom) tea.Cmd    { return func() tea.Msg { return PushMsg{State: atom} } }
 func Pop() tea.Cmd              { return func() tea.Msg { return PopMsg{} } }
 func Replace(atom Atom) tea.Cmd { return func() tea.Msg { return ReplaceMsg{State: atom} } }
 func Reset(atom Atom) tea.Cmd   { return func() tea.Msg { return ResetMsg{State: atom} } }
 
+// NewChain creates a new Chain with an initial Atom.
+// It panics if the initial Atom is nil.
 func NewChain(initial Atom) *Chain {
 	if initial == nil {
 		panic("initial state cannot be nil")
 	}
+
 	return &Chain{
 		stack: []Atom{initial},
 	}
