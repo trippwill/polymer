@@ -31,14 +31,25 @@ func ContextUpdate[T any](ctx T) tea.Cmd {
 	}
 }
 
+// SelectionType represents the type of file selection
+type SelectionType string
+
+const (
+	SelectionTypeFile       SelectionType = "file"
+	SelectionTypeDirectory  SelectionType = "directory"
+	SelectionTypeFiles      SelectionType = "files"
+	SelectionTypeDirectories SelectionType = "directories"
+	SelectionTypeMixed      SelectionType = "mixed"
+)
+
 // FileSelectionMsg represents a file selection result
 type FileSelectionMsg struct {
 	Files []string
-	Type  string // "file", "directory", or "files"
+	Type  SelectionType
 }
 
 // FileSelection creates a command to send file selection results
-func FileSelection(files []string, selectionType string) tea.Cmd {
+func FileSelection(files []string, selectionType SelectionType) tea.Cmd {
 	return func() tea.Msg {
 		return FileSelectionMsg{
 			Files: files,

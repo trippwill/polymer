@@ -74,17 +74,17 @@ func NewSelector(config Config) *Selector {
 	}
 }
 
-var _ poly.Atom = (*Selector)(nil)
+var _ poly.Atom = Selector{}
 
-func (s *Selector) Name() string { 
+func (s Selector) Name() string { 
 	return s.name 
 }
 
-func (s *Selector) Init() tea.Cmd {
+func (s Selector) Init() tea.Cmd {
 	return s.filepicker.Init()
 }
 
-func (s *Selector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+func (s Selector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -98,14 +98,14 @@ func (s *Selector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 
 	// Check if user selected a file
 	if didSelect, path := s.filepicker.DidSelectFile(msg); didSelect {
-		var selectionType string
+		var selectionType poly.SelectionType
 		switch s.config.FileType {
 		case FilesOnly:
-			selectionType = "file"
+			selectionType = poly.SelectionTypeFile
 		case DirsOnly:
-			selectionType = "directory"
+			selectionType = poly.SelectionTypeDirectory
 		default:
-			selectionType = "file"
+			selectionType = poly.SelectionTypeFile
 		}
 		
 		return s, tea.Sequence(
@@ -117,6 +117,6 @@ func (s *Selector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 	return s, cmd
 }
 
-func (s *Selector) View() string {
+func (s Selector) View() string {
 	return s.filepicker.View()
 }
