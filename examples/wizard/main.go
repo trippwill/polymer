@@ -90,7 +90,7 @@ func main() {
 
 	// Create the main menu using the menu gel
 	// Wrap the menu in its own navigation chain
-	root := atom.NewChain(
+	root := atom.NewStack(
 		menu.NewMenu(
 			"Main Menu",
 			menu.NewMenuItem(NamePromptScreen{}, "Run the Name Wizard"),

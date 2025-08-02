@@ -3,7 +3,7 @@ package util
 import tea "github.com/charmbracelet/bubbletea"
 
 // Broadcast sends a message to the event loop.
-func Broadcast(msg any) tea.Cmd {
+func Broadcast[T any](msg T) tea.Cmd {
 	return func() tea.Msg {
 		return msg
 	}

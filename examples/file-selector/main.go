@@ -102,7 +102,7 @@ func main() {
 	})
 
 	// Create the main menu
-	root := atom.NewChain(
+	root := atom.NewStack(
 		NewSelectionHandler(
 			"File Selector Demo",
 			menu.NewMenuItem(singleFileSelector, "Single File Selection"),

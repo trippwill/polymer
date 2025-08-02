@@ -145,7 +145,7 @@ func (l Lens) View() string {
 // resolve_atom recursively resolves an Atom through decorators and lenses.
 func resolve_atom(m_atom atom.Model) atom.Model {
 	switch a := m_atom.(type) {
-	case *atom.Chain:
+	case *atom.Stack:
 		return resolve_atom(a.Active())
 	case atom.AtomDecorator:
 		return resolve_atom(a.Model)
