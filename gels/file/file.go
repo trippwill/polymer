@@ -5,10 +5,12 @@ import (
 
 	"github.com/charmbracelet/bubbles/filepicker"
 	tea "github.com/charmbracelet/bubbletea"
-	poly "github.com/trippwill/polymer"
+	"github.com/trippwill/polymer/atom"
 )
 
-// FileType represents what can be selected
+// FileType filters what types of files are selectable in the file picker
+//
+//go:generate stringer -type=FileType
 type FileType int
 
 const (
@@ -19,20 +21,20 @@ const (
 
 // Config holds configuration for the file selector
 type Config struct {
-	Title       string
-	FileType    FileType
-	CurrentDir  string
-	ShowHidden  bool
+	Title      string
+	FileType   FileType
+	CurrentDir string
+	ShowHidden bool
 }
 
-// Selector wraps bubbles/filepicker for Polymer integration
+// Selector is a file/directory selector.
 type Selector struct {
 	filepicker filepicker.Model
 	config     Config
 	name       string
 }
 
-// NewSelector creates a new file selector wrapping bubbles/filepicker
+// NewSelector creates a new file selector.
 func NewSelector(config Config) *Selector {
 	if config.CurrentDir == "" {
 		if wd, err := os.Getwd(); err == nil {
@@ -47,7 +49,7 @@ func NewSelector(config Config) *Selector {
 	}
 
 	fp := filepicker.New()
-	
+
 	// Configure filepicker based on Config
 	fp.ShowHidden = config.ShowHidden
 	fp.ShowSize = true
@@ -74,23 +76,28 @@ func NewSelector(config Config) *Selector {
 	}
 }
 
-var _ poly.Atom = Selector{}
+var _ atom.Model = Selector{}
 
-func (s Selector) Name() string { 
-	return s.name 
+func (s Selector) Name() string {
+	return s.name
 }
 
 func (s Selector) Init() tea.Cmd {
-	return s.filepicker.Init()
+	return tea.Sequence(
+		s.filepicker.Init(),
+		tea.WindowSize(),
+	)
 }
 
-func (s Selector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+func (s Selector) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
-			return s, poly.Pop()
+			return s, atom.Pop()
 		}
+	case tea.WindowSizeMsg:
+		s.filepicker.SetHeight(msg.Height - 2) // Leave space for title
 	}
 
 	var cmd tea.Cmd
@@ -98,19 +105,19 @@ func (s Selector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 
 	// Check if user selected a file
 	if didSelect, path := s.filepicker.DidSelectFile(msg); didSelect {
-		var selectionType poly.SelectionType
+		var selectionType SelectionType
 		switch s.config.FileType {
 		case FilesOnly:
-			selectionType = poly.SelectionTypeFile
+			selectionType = SelectionTypeFile
 		case DirsOnly:
-			selectionType = poly.SelectionTypeDirectory
+			selectionType = SelectionTypeDirectory
 		default:
-			selectionType = poly.SelectionTypeFile
+			selectionType = SelectionTypeFile
 		}
-		
+
 		return s, tea.Sequence(
-			poly.FileSelection([]string{path}, selectionType),
-			poly.Pop(),
+			FileSelection([]string{path}, selectionType),
+			atom.Pop(),
 		)
 	}
 

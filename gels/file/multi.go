@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	poly "github.com/trippwill/polymer"
+	"github.com/trippwill/polymer/atom"
 )
 
 // SelectedFileItem represents a selected file in the selection list
@@ -26,11 +26,11 @@ var _ list.DefaultItem = SelectedFileItem{}
 
 // MultiSelector combines filepicker and list for multi-selection
 type MultiSelector struct {
-	filepicker  filepicker.Model
-	selectedList list.Model
-	config      Config
-	selected    map[string]SelectedFileItem // map of path -> item for selected items
-	name        string
+	filepicker       filepicker.Model
+	selectedList     list.Model
+	config           Config
+	selected         map[string]SelectedFileItem // map of path -> item for selected items
+	name             string
 	showingSelection bool // toggle between filepicker and selection list
 }
 
@@ -45,7 +45,7 @@ func NewMultiSelector(config Config) *MultiSelector {
 	fp.ShowHidden = config.ShowHidden
 	fp.ShowSize = true
 	fp.ShowPermissions = false
-	
+
 	if config.CurrentDir != "" {
 		fp.CurrentDirectory = config.CurrentDir
 	}
@@ -88,11 +88,11 @@ func NewMultiSelector(config Config) *MultiSelector {
 	}
 
 	return &MultiSelector{
-		filepicker:  fp,
-		selectedList: selectedList,
-		config:      config,
-		selected:    make(map[string]SelectedFileItem),
-		name:        config.Title,
+		filepicker:       fp,
+		selectedList:     selectedList,
+		config:           config,
+		selected:         make(map[string]SelectedFileItem),
+		name:             config.Title,
 		showingSelection: false,
 	}
 }
@@ -127,28 +127,28 @@ func (ms MultiSelector) getSelectedPaths() []string {
 	return paths
 }
 
-func (ms MultiSelector) getSelectionType() poly.SelectionType {
+func (ms MultiSelector) getSelectionType() SelectionType {
 	if len(ms.selected) == 0 {
-		return poly.SelectionTypeFiles
+		return SelectionTypeFiles
 	}
-	
+
 	// Determine selection type based on config and what was actually selected
 	switch ms.config.FileType {
 	case FilesOnly:
 		if len(ms.selected) == 1 {
-			return poly.SelectionTypeFile
+			return SelectionTypeFile
 		}
-		return poly.SelectionTypeFiles
+		return SelectionTypeFiles
 	case DirsOnly:
 		if len(ms.selected) == 1 {
-			return poly.SelectionTypeDirectory
+			return SelectionTypeDirectory
 		}
-		return poly.SelectionTypeDirectories
+		return SelectionTypeDirectories
 	case FilesAndDirs:
 		// For mixed mode, we need to check what types were actually selected
 		hasFiles := false
 		hasDirs := false
-		
+
 		for _, item := range ms.selected {
 			if info, err := os.Stat(item.Path); err == nil {
 				if info.IsDir() {
@@ -158,41 +158,43 @@ func (ms MultiSelector) getSelectionType() poly.SelectionType {
 				}
 			}
 		}
-		
+
 		if hasFiles && hasDirs {
-			return poly.SelectionTypeMixed
+			return SelectionTypeMixed
 		} else if hasDirs {
 			if len(ms.selected) == 1 {
-				return poly.SelectionTypeDirectory
+				return SelectionTypeDirectory
 			}
-			return poly.SelectionTypeDirectories
+			return SelectionTypeDirectories
 		} else {
 			if len(ms.selected) == 1 {
-				return poly.SelectionTypeFile
+				return SelectionTypeFile
 			}
-			return poly.SelectionTypeFiles
+			return SelectionTypeFiles
 		}
 	default:
-		return poly.SelectionTypeFiles
+		return SelectionTypeFiles
 	}
 }
 
-var _ poly.Atom = MultiSelector{}
+var _ atom.Model = MultiSelector{}
 
-func (ms MultiSelector) Name() string { 
-	return ms.name 
+func (ms MultiSelector) Name() string {
+	return ms.name
 }
 
 func (ms MultiSelector) Init() tea.Cmd {
-	return ms.filepicker.Init()
+	return tea.Sequence(
+		ms.filepicker.Init(),
+		tea.WindowSize(),
+	)
 }
 
-func (ms MultiSelector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+func (ms MultiSelector) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		ms.filepicker.SetHeight(msg.Height)
 		ms.selectedList.SetSize(msg.Width, msg.Height)
-		return ms, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -211,11 +213,11 @@ func (ms MultiSelector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 				paths := ms.getSelectedPaths()
 				selectionType := ms.getSelectionType()
 				return ms, tea.Sequence(
-					poly.FileSelection(paths, selectionType),
-					poly.Pop(),
+					FileSelection(paths, selectionType),
+					atom.Pop(),
 				)
 			}
-			return ms, poly.Pop()
+			return ms, atom.Pop()
 
 		case "enter":
 			if ms.showingSelection && len(ms.selected) > 0 {
@@ -223,8 +225,8 @@ func (ms MultiSelector) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 				paths := ms.getSelectedPaths()
 				selectionType := ms.getSelectionType()
 				return ms, tea.Sequence(
-					poly.FileSelection(paths, selectionType),
-					poly.Pop(),
+					FileSelection(paths, selectionType),
+					atom.Pop(),
 				)
 			}
 			// Handle in filepicker view below
@@ -284,7 +286,7 @@ func (ms MultiSelector) View() string {
 		}
 		return ms.selectedList.View() + "\n\nPress Tab to return to file picker, Enter to confirm selection."
 	}
-	
+
 	view := ms.filepicker.View()
 	if len(ms.selected) > 0 {
 		view += fmt.Sprintf("\n\nSelected: %d files (Press Tab to view, Space to add current file)", len(ms.selected))

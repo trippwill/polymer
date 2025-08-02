@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	poly "github.com/trippwill/polymer"
+	"github.com/trippwill/polymer/atom"
 	"github.com/trippwill/polymer/gels/file"
 	"github.com/trippwill/polymer/gels/menu"
 	"github.com/trippwill/polymer/trace"
@@ -25,18 +26,18 @@ func NewSelectionHandler(title string, items ...menu.Item) *SelectionHandler {
 	}
 }
 
-func (s *SelectionHandler) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+func (s *SelectionHandler) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case poly.FileSelectionMsg:
+	case file.FileSelectionMsg:
 		// Handle file selection results
 		if len(msg.Files) == 1 {
-			s.lastSelection = fmt.Sprintf("Selected %s: %s", msg.Type, msg.Files[0])
+			s.lastSelection = fmt.Sprintf("Selected %v: %s", msg.Type, msg.Files[0])
 		} else {
-			s.lastSelection = fmt.Sprintf("Selected %d %ss: %s", len(msg.Files), msg.Type, strings.Join(msg.Files, ", "))
+			s.lastSelection = fmt.Sprintf("Selected %d %v: %s", len(msg.Files), msg.Type, strings.Join(msg.Files, ", "))
 		}
 		return s, nil
 	}
-	
+
 	return s.Model.Update(msg)
 }
 
@@ -51,12 +52,13 @@ func (s *SelectionHandler) View() string {
 func (s *SelectionHandler) Name() string {
 	return s.Model.Name()
 }
+
 type QuitAtom struct{}
 
-func (q QuitAtom) Init() tea.Cmd                           { return tea.Quit }
-func (q QuitAtom) Update(msg tea.Msg) (poly.Atom, tea.Cmd) { return q, nil }
-func (q QuitAtom) View() string                            { return "Goodbye!\n" }
-func (q QuitAtom) Name() string                            { return "Quit" }
+func (q QuitAtom) Init() tea.Cmd                            { return tea.Quit }
+func (q QuitAtom) Update(msg tea.Msg) (atom.Model, tea.Cmd) { return q, nil }
+func (q QuitAtom) View() string                             { return "Goodbye!\n" }
+func (q QuitAtom) Name() string                             { return "Quit" }
 
 func main() {
 	// Set up a standard logger for tracing
@@ -100,7 +102,7 @@ func main() {
 	})
 
 	// Create the main menu
-	root := poly.NewChain(
+	root := atom.NewChain(
 		NewSelectionHandler(
 			"File Selector Demo",
 			menu.NewMenuItem(singleFileSelector, "Single File Selection"),
@@ -116,7 +118,7 @@ func main() {
 	host := poly.NewHost(
 		"File Selector Example",
 		root,
-		trace.WithBasicLogging(logger, poly.TraceLevel)...,
+		trace.WithLifecycleLogging(logger, trace.LevelTrace)...,
 	)
 
 	p := tea.NewProgram(host)

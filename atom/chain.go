@@ -1,63 +1,64 @@
-package polymer
+package atom
 
 import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/trippwill/polymer/util"
 )
 
-// Chain manages a stack of Atoms.
+// Chain manages a stack of Models.
 type Chain struct {
-	stack []Atom
+	stack []Model
 	name  string
 }
 
 // Messages for the Chain to handle state changes.
 type (
-	PushMsg    struct{ State Atom }
+	PushMsg    struct{ State Model }
 	PopMsg     struct{}
-	ReplaceMsg struct{ State Atom }
-	ResetMsg   struct{ State Atom }
+	ReplaceMsg struct{ State Model }
+	ResetMsg   struct{ State Model }
 )
 
 var ErrChainEmpty = fmt.Errorf("chain is empty")
 
 // PushMsg, PopMsg, ReplaceMsg, and ResetMsg are used to manipulate the Chain's stack.
-func Push(atom Atom) tea.Cmd    { return func() tea.Msg { return PushMsg{State: atom} } }
-func Pop() tea.Cmd              { return func() tea.Msg { return PopMsg{} } }
-func Replace(atom Atom) tea.Cmd { return func() tea.Msg { return ReplaceMsg{State: atom} } }
-func Reset(atom Atom) tea.Cmd   { return func() tea.Msg { return ResetMsg{State: atom} } }
+func Push(atom Model) tea.Cmd    { return func() tea.Msg { return PushMsg{State: atom} } }
+func Pop() tea.Cmd               { return func() tea.Msg { return PopMsg{} } }
+func Replace(atom Model) tea.Cmd { return func() tea.Msg { return ReplaceMsg{State: atom} } }
+func Reset(atom Model) tea.Cmd   { return func() tea.Msg { return ResetMsg{State: atom} } }
 
-// NewChain creates a new Chain with an initial Atom.
-// It panics if the initial Atom is nil.
-func NewChain(initial Atom) *Chain {
+// NewChain creates a new Chain with an initial Model.
+// It panics if the initial Model is nil.
+func NewChain(initial Model) *Chain {
 	if initial == nil {
 		panic("initial state cannot be nil")
 	}
 
 	return &Chain{
-		stack: []Atom{initial},
+		stack: []Model{initial},
 	}
 }
 
-// Active returns the Atom at the top of the stack.
-func (h *Chain) Active() Atom {
+// Active returns the Model at the top of the stack.
+func (h *Chain) Active() Model {
 	if len(h.stack) == 0 {
 		return nil
 	}
 	return h.stack[len(h.stack)-1]
 }
 
-// Peek returns the Atom at the specified position from the top of the stack.
+// Peek returns the Model at the specified position from the top of the stack.
 // If n is out of bounds, it returns nil.
-func (h *Chain) Peek(n int) Atom {
+func (h *Chain) Peek(n int) Model {
 	if n < 0 || n >= len(h.stack) {
 		return nil
 	}
 	return h.stack[len(h.stack)-1-n]
 }
 
-// Depth returns the number of Atoms in the stack.
+// Depth returns the number of Models in the stack.
 func (h *Chain) Depth() int {
 	return len(h.stack)
 }
@@ -74,7 +75,7 @@ func (h *Chain) Init() tea.Cmd {
 }
 
 // Update processes the message and updates the active state in the stack.
-func (h *Chain) Update(msg tea.Msg) (Atom, tea.Cmd) {
+func (h *Chain) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch m := msg.(type) {
 	case PushMsg:
 		h.push(m.State)
@@ -92,7 +93,7 @@ func (h *Chain) Update(msg tea.Msg) (Atom, tea.Cmd) {
 
 	current := h.Active()
 	if current == nil {
-		return h, Error(ErrChainEmpty)
+		return h, util.Broadcast(ErrChainEmpty)
 	}
 
 	next, cmd := current.Update(msg)
@@ -109,8 +110,8 @@ func (h *Chain) View() string {
 	return current.View()
 }
 
-// push adds a new Atom to the top of the stack.
-func (h *Chain) push(state Atom) {
+// push adds a new Model to the top of the stack.
+func (h *Chain) push(state Model) {
 	if state == nil {
 		return
 	}
@@ -118,8 +119,8 @@ func (h *Chain) push(state Atom) {
 	h.stack = append(h.stack, state)
 }
 
-// pop removes the top Atom from the stack and returns it.
-func (h *Chain) pop() Atom {
+// pop removes the top Model from the stack and returns it.
+func (h *Chain) pop() Model {
 	if len(h.stack) == 0 {
 		return nil
 	}
@@ -129,8 +130,8 @@ func (h *Chain) pop() Atom {
 	return active
 }
 
-// replace the top Atom in the stack with a new one.
-func (h *Chain) replace(atom Atom) {
+// replace the top Model in the stack with a new one.
+func (h *Chain) replace(atom Model) {
 	if atom == nil {
 		return
 	}
@@ -142,13 +143,13 @@ func (h *Chain) replace(atom Atom) {
 	}
 }
 
-// reset the stack to a single Atom state.
-// if atom is nil, it resets to the initial Atom in the stack.
-func (h *Chain) reset(atom Atom) {
+// reset the stack to a single Model state.
+// if atom is nil, it resets to the initial Model in the stack.
+func (h *Chain) reset(atom Model) {
 	if atom == nil {
-		h.stack = []Atom{h.stack[0]}
+		h.stack = []Model{h.stack[0]}
 		return
 	}
 
-	h.stack = []Atom{atom}
+	h.stack = []Model{atom}
 }

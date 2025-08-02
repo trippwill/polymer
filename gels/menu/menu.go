@@ -6,18 +6,19 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	poly "github.com/trippwill/polymer"
+	"github.com/trippwill/polymer/atom"
+	"github.com/trippwill/polymer/trace"
 )
 
 // Item is a menu item that contains an Atom and a description.
 type Item struct {
-	poly.Atom
+	atom.Model
 	description string
 }
 
-func NewMenuItem(atom poly.Atom, description string) Item {
+func NewMenuItem(atom atom.Model, description string) Item {
 	return Item{
-		Atom:        atom,
+		Model:       atom,
 		description: description,
 	}
 }
@@ -60,7 +61,7 @@ func NewMenu(title string, items ...Item) *Model {
 	return &Model{list: l, name: title}
 }
 
-var _ poly.Atom = Model{}
+var _ atom.Model = Model{}
 
 func (m Model) Name() string { return m.name }
 
@@ -68,7 +69,7 @@ func (m Model) Init() tea.Cmd {
 	return tea.WindowSize()
 }
 
-func (m Model) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width, msg.Height)
@@ -77,15 +78,15 @@ func (m Model) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			if selected, ok := m.list.SelectedItem().(Item); ok && selected.Atom != nil {
+			if selected, ok := m.list.SelectedItem().(Item); ok && selected.Model != nil {
 				return m, tea.Sequence(
-					poly.Notify(poly.InfoLevel, "selected: "+selected.Name()),
-					poly.Push(selected.Atom),
+					trace.TraceInfo("selected: "+selected.Name()),
+					atom.Push(selected.Model),
 				)
 			}
 
 		case "esc":
-			return m, poly.Pop()
+			return m, atom.Pop()
 		}
 	}
 

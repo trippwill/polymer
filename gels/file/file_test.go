@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	poly "github.com/trippwill/polymer"
+	"github.com/trippwill/polymer/atom"
 )
 
 func TestNewSelector(t *testing.T) {
@@ -16,7 +16,7 @@ func TestNewSelector(t *testing.T) {
 		expected func(*Selector) bool
 	}{
 		{
-			name: "default config",
+			name:   "default config",
 			config: Config{},
 			expected: func(s *Selector) bool {
 				return s.name == "Select File" && s.config.CurrentDir != ""
@@ -29,7 +29,7 @@ func TestNewSelector(t *testing.T) {
 				FileType: FilesOnly,
 			},
 			expected: func(s *Selector) bool {
-				return s.name == "Pick File" && 
+				return s.name == "Pick File" &&
 					s.filepicker.FileAllowed && !s.filepicker.DirAllowed
 			},
 		},
@@ -40,19 +40,19 @@ func TestNewSelector(t *testing.T) {
 				FileType: DirsOnly,
 			},
 			expected: func(s *Selector) bool {
-				return s.name == "Pick Directory" && 
+				return s.name == "Pick Directory" &&
 					!s.filepicker.FileAllowed && s.filepicker.DirAllowed
 			},
 		},
 		{
 			name: "files and dirs config",
 			config: Config{
-				Title:    "Pick Anything",
-				FileType: FilesAndDirs,
+				Title:      "Pick Anything",
+				FileType:   FilesAndDirs,
 				ShowHidden: true,
 			},
 			expected: func(s *Selector) bool {
-				return s.name == "Pick Anything" && 
+				return s.name == "Pick Anything" &&
 					s.filepicker.FileAllowed && s.filepicker.DirAllowed &&
 					s.filepicker.ShowHidden
 			},
@@ -73,7 +73,7 @@ func TestSelectorAtomInterface(t *testing.T) {
 	selector := NewSelector(Config{Title: "Test"})
 
 	// Test that it implements poly.Atom
-	var _ poly.Atom = *selector
+	var _ atom.Model = *selector
 
 	// Test Name method
 	if name := selector.Name(); name != "Test" {
@@ -97,18 +97,18 @@ func TestSelectorUpdate(t *testing.T) {
 	selector := NewSelector(Config{Title: "Test"})
 
 	tests := []struct {
-		name string
-		msg  tea.Msg
+		name      string
+		msg       tea.Msg
 		expectPop bool
 	}{
 		{
-			name: "escape key",
-			msg: tea.KeyMsg{Type: tea.KeyEsc},
+			name:      "escape key",
+			msg:       tea.KeyMsg{Type: tea.KeyEsc},
 			expectPop: true,
 		},
 		{
-			name: "other key",
-			msg: tea.KeyMsg{Type: tea.KeyEnter},
+			name:      "other key",
+			msg:       tea.KeyMsg{Type: tea.KeyEnter},
 			expectPop: false,
 		},
 	}
@@ -116,7 +116,7 @@ func TestSelectorUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			atom, cmd := selector.Update(tt.msg)
-			
+
 			// Should return same type
 			if _, ok := atom.(Selector); !ok {
 				t.Error("Update() didn't return Selector")
@@ -154,7 +154,7 @@ func TestMultiSelectorAtomInterface(t *testing.T) {
 	selector := NewMultiSelector(Config{Title: "Multi Test"})
 
 	// Test that it implements poly.Atom
-	var _ poly.Atom = *selector
+	var _ atom.Model = *selector
 
 	// Test Name method
 	if name := selector.Name(); name != "Multi Test" {
@@ -179,7 +179,7 @@ func TestMultiSelectorHelperMethods(t *testing.T) {
 
 	// Test addSelection
 	selector.addSelection("/test/file.txt", "file.txt")
-	
+
 	if len(selector.selected) != 1 {
 		t.Errorf("After addSelection, len(selected) = %d, want 1", len(selector.selected))
 	}
@@ -196,9 +196,9 @@ func TestMultiSelectorHelperMethods(t *testing.T) {
 		t.Errorf("getSelectedPaths() = %v, want [/test/file.txt]", paths)
 	}
 
-	// Test removeSelection  
+	// Test removeSelection
 	selector.removeSelection("/test/file.txt")
-	
+
 	if len(selector.selected) != 0 {
 		t.Errorf("After removeSelection, len(selected) = %d, want 0", len(selector.selected))
 	}
@@ -208,18 +208,18 @@ func TestMultiSelectorUpdate(t *testing.T) {
 	selector := NewMultiSelector(Config{Title: "Test"})
 
 	tests := []struct {
-		name string
-		msg  tea.Msg
+		name                     string
+		msg                      tea.Msg
 		expectedShowingSelection bool
 	}{
 		{
-			name: "tab key toggles view",
-			msg: tea.KeyMsg{Type: tea.KeyTab},
-			expectedShowingSelection: true, 
+			name:                     "tab key toggles view",
+			msg:                      tea.KeyMsg{Type: tea.KeyTab},
+			expectedShowingSelection: true,
 		},
 		{
-			name: "escape in selection view goes back to filepicker",
-			msg: tea.KeyMsg{Type: tea.KeyEsc},
+			name:                     "escape in selection view goes back to filepicker",
+			msg:                      tea.KeyMsg{Type: tea.KeyEsc},
 			expectedShowingSelection: false,
 		},
 	}
@@ -228,14 +228,14 @@ func TestMultiSelectorUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			atom, cmd := currentSelector.Update(tt.msg)
-			
+
 			updatedSelector, ok := atom.(MultiSelector)
 			if !ok {
 				t.Fatal("Update() didn't return MultiSelector")
 			}
 
 			if updatedSelector.showingSelection != tt.expectedShowingSelection {
-				t.Errorf("showingSelection = %v, want %v", 
+				t.Errorf("showingSelection = %v, want %v",
 					updatedSelector.showingSelection, tt.expectedShowingSelection)
 			}
 
@@ -261,7 +261,7 @@ func TestSelectionType(t *testing.T) {
 	// Create test files and directories
 	testFile := filepath.Join(tmpDir, "test.txt")
 	testDir := filepath.Join(tmpDir, "testdir")
-	
+
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -270,53 +270,53 @@ func TestSelectionType(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		config Config
+		name       string
+		config     Config
 		selections map[string]SelectedFileItem
-		expected poly.SelectionType
+		expected   SelectionType
 	}{
 		{
-			name: "single file",
+			name:   "single file",
 			config: Config{FileType: FilesOnly},
 			selections: map[string]SelectedFileItem{
 				testFile: {Name: "test.txt", Path: testFile},
 			},
-			expected: poly.SelectionTypeFile,
+			expected: SelectionTypeFile,
 		},
 		{
-			name: "multiple files",
+			name:   "multiple files",
 			config: Config{FileType: FilesOnly},
 			selections: map[string]SelectedFileItem{
-				testFile: {Name: "test.txt", Path: testFile},
+				testFile:       {Name: "test.txt", Path: testFile},
 				testFile + "2": {Name: "test2.txt", Path: testFile + "2"},
 			},
-			expected: poly.SelectionTypeFiles,
+			expected: SelectionTypeFiles,
 		},
 		{
-			name: "single directory",
+			name:   "single directory",
 			config: Config{FileType: DirsOnly},
 			selections: map[string]SelectedFileItem{
 				testDir: {Name: "testdir", Path: testDir},
 			},
-			expected: poly.SelectionTypeDirectory,
+			expected: SelectionTypeDirectory,
 		},
 		{
-			name: "multiple directories",
+			name:   "multiple directories",
 			config: Config{FileType: DirsOnly},
 			selections: map[string]SelectedFileItem{
-				testDir: {Name: "testdir", Path: testDir},
+				testDir:       {Name: "testdir", Path: testDir},
 				testDir + "2": {Name: "testdir2", Path: testDir + "2"},
 			},
-			expected: poly.SelectionTypeDirectories,
+			expected: SelectionTypeDirectories,
 		},
 		{
-			name: "mixed selection",
+			name:   "mixed selection",
 			config: Config{FileType: FilesAndDirs},
 			selections: map[string]SelectedFileItem{
 				testFile: {Name: "test.txt", Path: testFile},
-				testDir: {Name: "testdir", Path: testDir},
+				testDir:  {Name: "testdir", Path: testDir},
 			},
-			expected: poly.SelectionTypeMixed,
+			expected: SelectionTypeMixed,
 		},
 	}
 
@@ -324,7 +324,7 @@ func TestSelectionType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			selector := NewMultiSelector(tt.config)
 			selector.selected = tt.selections
-			
+
 			selectionType := selector.getSelectionType()
 			if selectionType != tt.expected {
 				t.Errorf("getSelectionType() = %v, want %v", selectionType, tt.expected)
@@ -336,17 +336,17 @@ func TestSelectionType(t *testing.T) {
 func TestFileSelectionMsg(t *testing.T) {
 	// Test the FileSelectionMsg and FileSelection command
 	files := []string{"/test/file1.txt", "/test/file2.txt"}
-	selectionType := poly.SelectionTypeFiles
+	selectionType := SelectionTypeFiles
 
-	cmd := poly.FileSelection(files, selectionType)
+	cmd := FileSelection(files, selectionType)
 	if cmd == nil {
 		t.Fatal("FileSelection returned nil command")
 	}
 
 	// Execute the command to get the message
 	msg := cmd()
-	
-	fileMsg, ok := msg.(poly.FileSelectionMsg)
+
+	fileMsg, ok := msg.(FileSelectionMsg)
 	if !ok {
 		t.Fatalf("Command returned %T, want FileSelectionMsg", msg)
 	}
@@ -365,3 +365,4 @@ func TestFileSelectionMsg(t *testing.T) {
 		}
 	}
 }
+

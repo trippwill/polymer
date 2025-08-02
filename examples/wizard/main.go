@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	poly "github.com/trippwill/polymer"
+	"github.com/trippwill/polymer/atom"
 	"github.com/trippwill/polymer/gels/menu"
 	"github.com/trippwill/polymer/trace"
 )
@@ -14,10 +15,10 @@ import (
 // QuitAtom is a simple Atom that quits the application immediately.
 type QuitAtom struct{}
 
-func (q QuitAtom) Init() tea.Cmd                           { return tea.Quit }
-func (q QuitAtom) Update(msg tea.Msg) (poly.Atom, tea.Cmd) { return q, nil }
-func (q QuitAtom) View() string                            { return "Goodbye!\n" }
-func (q QuitAtom) Name() string                            { return "Quit" }
+func (q QuitAtom) Init() tea.Cmd                            { return tea.Quit }
+func (q QuitAtom) Update(msg tea.Msg) (atom.Model, tea.Cmd) { return q, nil }
+func (q QuitAtom) View() string                             { return "Goodbye!\n" }
+func (q QuitAtom) Name() string                             { return "Quit" }
 
 // NamePromptScreen is an Atom that prompts the user to enter their name.
 type NamePromptScreen struct {
@@ -28,7 +29,7 @@ func (n NamePromptScreen) Init() tea.Cmd {
 	return nil
 }
 
-func (n NamePromptScreen) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
+func (n NamePromptScreen) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -42,7 +43,7 @@ func (n NamePromptScreen) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
 			return n, nil
 		case tea.KeyEnter:
 			// Push the GreetingScreen, passing along the entered name.
-			return n, poly.Push(GreetingScreen{Value: n.input})
+			return n, atom.Push(GreetingScreen{Value: n.input})
 		}
 	}
 	return n, nil
@@ -63,10 +64,10 @@ func (g GreetingScreen) Init() tea.Cmd {
 	return nil
 }
 
-func (g GreetingScreen) Update(msg tea.Msg) (poly.Atom, tea.Cmd) {
-	// On any key, pop twice: exit greeting and name prompt back to main menu.
+func (g GreetingScreen) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
+	// On any key, reset chain to initial state: exit greeting and name prompt back to main menu.
 	if _, ok := msg.(tea.KeyMsg); ok {
-		return g, tea.Batch(poly.Pop(), poly.Pop())
+		return g, atom.Reset(nil)
 	}
 	return g, nil
 }
@@ -89,7 +90,7 @@ func main() {
 
 	// Create the main menu using the menu gel
 	// Wrap the menu in its own navigation chain
-	root := poly.NewChain(
+	root := atom.NewChain(
 		menu.NewMenu(
 			"Main Menu",
 			menu.NewMenuItem(NamePromptScreen{}, "Run the Name Wizard"),
@@ -101,7 +102,7 @@ func main() {
 	host := poly.NewHost(
 		"Polymer Integration Example",
 		root,
-		trace.WithBasicLogging(logger, poly.TraceLevel)...,
+		trace.WithLifecycleLogging(logger, trace.LevelTrace)...,
 	)
 
 	p := tea.NewProgram(host)

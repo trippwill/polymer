@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/trippwill/polymer/atom"
 )
 
 // AtomAdapter adapts a tea.Model to the Atom interface.
@@ -13,11 +14,11 @@ type AtomAdapter struct {
 }
 
 // AdaptModel wraps a tea.Model as an Atom if needed and returns it with the command.
-func AdaptModel(mode tea.Model, cmd tea.Cmd) (Atom, tea.Cmd) {
+func AdaptModel(mode tea.Model, cmd tea.Cmd) (atom.Model, tea.Cmd) {
 	return AtomAdapter{Model: mode}, cmd
 }
 
-var _ Atom = AtomAdapter{}
+var _ atom.Model = AtomAdapter{}
 
 // Name returns the AtomAdapter's name or the type name of the model.
 func (a AtomAdapter) Name() string {
@@ -34,7 +35,7 @@ func (a AtomAdapter) Init() tea.Cmd {
 }
 
 // Update delegates to the model's Update and adapts the result.
-func (a AtomAdapter) Update(msg tea.Msg) (Atom, tea.Cmd) {
+func (a AtomAdapter) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 	return AdaptModel(a.Model.Update(msg))
 }
 

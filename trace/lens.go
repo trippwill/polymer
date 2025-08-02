@@ -1,18 +1,19 @@
-package polymer
+package trace
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/trippwill/polymer/atom"
 )
 
 // Lens provides lifecycle hooks for Atoms.
 type Lens struct {
-	Atom
+	atom.Model
 	OnInit       OnInit       // Called when an Atom is initialized.
 	BeforeUpdate BeforeUpdate // Called before an Atom is updated.
 	AfterUpdate  AfterUpdate  // Called after an Atom is updated.
 	OnView       OnView       // Called when an Atom is rendered.
 	OnError      OnError      // Called when an error occurs in an Atom.
-	OnNotify     OnNotify     // Called when an Atom sends a notfication.
+	OnTrace      OnTrace      // Called when an Atom sends a trace message.
 }
 
 // LensOption configures a Lens.
@@ -20,42 +21,28 @@ type LensOption func(*Lens)
 
 // Lifecycle hooks for Atoms.
 type (
-	OnInit       func(active Atom, cmd tea.Cmd)
-	BeforeUpdate func(active Atom, msg tea.Msg)
-	AfterUpdate  func(active Atom, cmd tea.Cmd)
-	OnView       func(active Atom, rendered string)
-	OnError      func(active Atom, err error)
-	OnNotify     func(active Atom, level NotificationLevel, msg string)
+	OnInit       func(active atom.Model, cmd tea.Cmd)
+	BeforeUpdate func(active atom.Model, msg tea.Msg)
+	AfterUpdate  func(active atom.Model, cmd tea.Cmd)
+	OnView       func(active atom.Model, rendered string)
+	OnError      func(active atom.Model, err error)
+	OnTrace      func(active atom.Model, level TraceLevel, msg string)
 )
 
-type NotificationLevel int
+//go:generate stringer -type=TraceLevel -trimprefix=Level
+type TraceLevel int
 
 const (
-	TraceLevel NotificationLevel = iota
-	DebugLevel
-	InfoLevel
-	WarnLevel
+	LevelTrace TraceLevel = iota
+	LevelDebug
+	LevelInfo
+	LevelWarn
 )
 
-func (n NotificationLevel) String() string {
-	switch n {
-	case TraceLevel:
-		return "Trace"
-	case DebugLevel:
-		return "Debug"
-	case InfoLevel:
-		return "Info"
-	case WarnLevel:
-		return "Warn"
-	default:
-		return "Unknown"
-	}
-}
-
-// LensWrap wraps an Atom in a Lens, allowing for lifecycle hooks to be added.
-func LensWrap(atom Atom, opts ...LensOption) *Lens {
+// NewLens wraps an Atom in a Lens, allowing for lifecycle hooks to be added.
+func NewLens(atom atom.Model, opts ...LensOption) *Lens {
 	l := &Lens{
-		Atom: atom,
+		Model: atom,
 	}
 
 	for _, opt := range opts {
@@ -100,69 +87,70 @@ func WithOnError(fn OnError) LensOption {
 	}
 }
 
-func WithOnNotify(fn OnNotify) LensOption {
+// WithOnTrace sets the OnTrace hook.
+func WithOnTrace(fn OnTrace) LensOption {
 	return func(h *Lens) {
-		h.OnNotify = fn
+		h.OnTrace = fn
 	}
 }
 
-var _ Atom = Lens{}
+var _ atom.Model = Lens{}
 
-// Init implements polymer.Atom.
+// Init implements atom.Model.
 func (l Lens) Init() tea.Cmd {
-	cmd := OptionalInit(l.Atom)
+	cmd := atom.OptionalInit(l.Model)
 	if l.OnInit != nil {
-		l.OnInit(resolve_atom(l.Atom), cmd)
+		l.OnInit(resolve_atom(l.Model), cmd)
 	}
 
 	return cmd
 }
 
-// Update implements polymer.Atom.
-func (l Lens) Update(msg tea.Msg) (Atom, tea.Cmd) {
+// Update implements atom.Model.
+func (l Lens) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case ErrorMsg:
+	case error:
 		if l.OnError != nil {
-			l.OnError(resolve_atom(l.Atom), msg)
+			l.OnError(resolve_atom(l.Model), msg)
 		}
-	case NotificationMsg:
-		if l.OnNotify != nil {
-			l.OnNotify(resolve_atom(l.Atom), msg.level, msg.string)
+	case TraceMsg:
+		if l.OnTrace != nil {
+			l.OnTrace(resolve_atom(l.Model), msg.Level, msg.Msg)
 		}
 	}
 
 	if l.BeforeUpdate != nil {
-		l.BeforeUpdate(resolve_atom(l.Atom), msg)
+		l.BeforeUpdate(resolve_atom(l.Model), msg)
 	}
 
-	next, cmd := l.Atom.Update(msg)
+	next, cmd := l.Model.Update(msg)
 	if l.AfterUpdate != nil {
 		l.AfterUpdate(resolve_atom(next), cmd)
 	}
 
-	l.Atom = next
+	l.Model = next
 	return l, cmd
 }
 
-// View implements polymer.Atom.
+// View implements atom.Model.
 func (l Lens) View() string {
-	rendered := l.Atom.View()
+	rendered := l.Model.View()
 	if l.OnView != nil {
-		l.OnView(resolve_atom(l.Atom), rendered)
+		l.OnView(resolve_atom(l.Model), rendered)
 	}
 
 	return rendered
 }
 
 // resolve_atom recursively resolves an Atom through decorators and lenses.
-func resolve_atom(atom Atom) Atom {
-	switch a := atom.(type) {
-	case *Chain:
+func resolve_atom(m_atom atom.Model) atom.Model {
+	switch a := m_atom.(type) {
+	case *atom.Chain:
 		return resolve_atom(a.Active())
-	case AtomDecorator:
-		return resolve_atom(a.Atom)
+	case atom.AtomDecorator:
+		return resolve_atom(a.Model)
 	case *Lens:
-		return resolve_atom(a.Atom)
+		return resolve_atom(a.Model)
 	default:
 		return a
 	}

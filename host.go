@@ -2,20 +2,22 @@ package polymer
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/trippwill/polymer/atom"
+	"github.com/trippwill/polymer/trace"
 )
 
 type Host struct {
 	name  string
-	state Atom
+	state atom.Model
 }
 
-func NewHost(name string, root Atom, options ...LensOption) *Host {
+func NewHost(name string, root atom.Model, options ...trace.LensOption) *Host {
 	if root == nil {
 		panic("root state cannot be nil")
 	}
 
 	if len(options) > 0 {
-		root = LensWrap(root, options...)
+		root = trace.NewLens(root, options...)
 	}
 
 	return &Host{
@@ -29,7 +31,8 @@ var _ tea.Model = Host{}
 func (h Host) Init() tea.Cmd {
 	return tea.Batch(
 		tea.SetWindowTitle(h.name),
-		OptionalInit(h.state),
+		atom.OptionalInit(h.state),
+		tea.WindowSize(),
 	)
 }
 
