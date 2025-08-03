@@ -8,7 +8,7 @@ import (
 // TraceMsg is a tracing message and level.
 type TraceMsg struct {
 	Msg   string
-	Level TraceLevel
+	Level Level
 }
 
 // TraceTrace sends a trace message at the Trace level.

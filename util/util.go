@@ -1,6 +1,17 @@
 package util
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+var currentId uint32 = 1
+
+// NewId generates a new unique identifier.
+func NewId() uint32 {
+	currentId++
+	localId := currentId
+	return localId
+}
 
 // Broadcast sends a message to the event loop.
 func Broadcast[T any](msg T) tea.Cmd {
@@ -9,7 +20,7 @@ func Broadcast[T any](msg T) tea.Cmd {
 	}
 }
 
-// ContextMsg is a message that carries context data.
+// ContextMsg carries context data.
 type ContextMsg[T any] struct {
 	Context T
 }

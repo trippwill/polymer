@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/filepicker"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/atom"
+	poly "github.com/trippwill/polymer"
 )
 
 // FileType filters what types of files are selectable in the file picker
@@ -29,6 +29,7 @@ type Config struct {
 
 // Selector is a file/directory selector.
 type Selector struct {
+	poly.Atom
 	filepicker filepicker.Model
 	config     Config
 	name       string
@@ -70,17 +71,14 @@ func NewSelector(config Config) *Selector {
 	}
 
 	return &Selector{
+		Atom:       poly.NewAtom(config.Title),
 		filepicker: fp,
 		config:     config,
 		name:       config.Title,
 	}
 }
 
-var _ atom.Model = Selector{}
-
-func (s Selector) Name() string {
-	return s.name
-}
+var _ poly.Atomic = Selector{}
 
 func (s Selector) Init() tea.Cmd {
 	return tea.Sequence(
@@ -89,12 +87,12 @@ func (s Selector) Init() tea.Cmd {
 	)
 }
 
-func (s Selector) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
+func (s Selector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
-			return s, atom.Pop()
+			return nil, nil
 		}
 	case tea.WindowSizeMsg:
 		s.filepicker.SetHeight(msg.Height - 2) // Leave space for title
@@ -115,15 +113,10 @@ func (s Selector) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 			selectionType = SelectionTypeFile
 		}
 
-		return s, tea.Sequence(
-			FileSelection([]string{path}, selectionType),
-			atom.Pop(),
-		)
+		return nil, FileSelection([]string{path}, selectionType)
 	}
 
 	return s, cmd
 }
 
-func (s Selector) View() string {
-	return s.filepicker.View()
-}
+func (s Selector) View() string { return s.filepicker.View() }

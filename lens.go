@@ -1,13 +1,19 @@
-package trace
+package polymer
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/atom"
+	"github.com/trippwill/polymer/trace"
 )
 
-// Lens provides lifecycle hooks for Atoms.
+type Modal interface {
+	Atomic
+	GetCurrent() Atomic // GetCurrent returns the current active model.
+}
+
+// Lens provides lifecycle hooks for [tea.Model].
 type Lens struct {
-	atom.Model
+	tea.Model
+	Atom
 	OnInit       OnInit       // Called when an Atom is initialized.
 	BeforeUpdate BeforeUpdate // Called before an Atom is updated.
 	AfterUpdate  AfterUpdate  // Called after an Atom is updated.
@@ -19,30 +25,21 @@ type Lens struct {
 // LensOption configures a Lens.
 type LensOption func(*Lens)
 
-// Lifecycle hooks for Atoms.
+// Lifecycle hooks for [tea.Model].
 type (
-	OnInit       func(active atom.Model, cmd tea.Cmd)
-	BeforeUpdate func(active atom.Model, msg tea.Msg)
-	AfterUpdate  func(active atom.Model, cmd tea.Cmd)
-	OnView       func(active atom.Model, rendered string)
-	OnError      func(active atom.Model, err error)
-	OnTrace      func(active atom.Model, level TraceLevel, msg string)
+	OnInit       func(active tea.Model, cmd tea.Cmd)
+	BeforeUpdate func(active tea.Model, msg tea.Msg)
+	AfterUpdate  func(active tea.Model, cmd tea.Cmd)
+	OnView       func(active tea.Model, rendered string)
+	OnError      func(active tea.Model, err error)
+	OnTrace      func(active tea.Model, level trace.Level, msg string)
 )
 
-//go:generate stringer -type=TraceLevel -trimprefix=Level
-type TraceLevel int
-
-const (
-	LevelTrace TraceLevel = iota
-	LevelDebug
-	LevelInfo
-	LevelWarn
-)
-
-// NewLens wraps an Atom in a Lens, allowing for lifecycle hooks to be added.
-func NewLens(atom atom.Model, opts ...LensOption) *Lens {
+// NewLens wraps a [tea.Model] in a Lens, allowing for lifecycle hooks to be added.
+func NewLens(model tea.Model, opts ...LensOption) *Lens {
 	l := &Lens{
-		Model: atom,
+		Model: model,
+		Atom:  NewAtom("lens"),
 	}
 
 	for _, opt := range opts {
@@ -94,63 +91,69 @@ func WithOnTrace(fn OnTrace) LensOption {
 	}
 }
 
-var _ atom.Model = Lens{}
+var _ Atomic = Lens{}
 
-// Init implements atom.Model.
 func (l Lens) Init() tea.Cmd {
-	cmd := atom.OptionalInit(l.Model)
+	cmd := l.Model.Init()
 	if l.OnInit != nil {
-		l.OnInit(resolve_atom(l.Model), cmd)
+		l.OnInit(resolve(l.Model), cmd)
 	}
 
 	return cmd
 }
 
-// Update implements atom.Model.
-func (l Lens) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
+func (l Lens) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case error:
 		if l.OnError != nil {
-			l.OnError(resolve_atom(l.Model), msg)
+			l.OnError(resolve(l.Model), msg)
 		}
-	case TraceMsg:
+	case trace.TraceMsg:
 		if l.OnTrace != nil {
-			l.OnTrace(resolve_atom(l.Model), msg.Level, msg.Msg)
+			l.OnTrace(resolve(l.Model), msg.Level, msg.Msg)
 		}
 	}
 
 	if l.BeforeUpdate != nil {
-		l.BeforeUpdate(resolve_atom(l.Model), msg)
+		l.BeforeUpdate(resolve(l.Model), msg)
 	}
 
 	next, cmd := l.Model.Update(msg)
 	if l.AfterUpdate != nil {
-		l.AfterUpdate(resolve_atom(next), cmd)
+		l.AfterUpdate(resolve(next), cmd)
 	}
 
 	l.Model = next
 	return l, cmd
 }
 
-// View implements atom.Model.
 func (l Lens) View() string {
-	rendered := l.Model.View()
+	rendered := ""
+	if l.Model != nil {
+		rendered = l.Model.View()
+	}
+
 	if l.OnView != nil {
-		l.OnView(resolve_atom(l.Model), rendered)
+		l.OnView(resolve(l.Model), rendered)
 	}
 
 	return rendered
 }
 
-// resolve_atom recursively resolves an Atom through decorators and lenses.
-func resolve_atom(m_atom atom.Model) atom.Model {
-	switch a := m_atom.(type) {
-	case *atom.Stack:
-		return resolve_atom(a.Active())
-	case atom.AtomDecorator:
-		return resolve_atom(a.Model)
+// resolve recursively resolves a [tea.Model] through [Lens] and [Modal] types.
+func resolve(model tea.Model) tea.Model {
+	switch a := model.(type) {
+	case Modal:
+		current := a.GetCurrent()
+		if current.Id() != a.Id() {
+			// If the current model is not the same as the modal's ID, resolve it.
+			return resolve(current)
+		}
+		return current
 	case *Lens:
-		return resolve_atom(a.Model)
+		return resolve(a.Model)
+	case Lens:
+		return resolve(a.Model)
 	default:
 		return a
 	}

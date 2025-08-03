@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/atom"
+	poly "github.com/trippwill/polymer"
 )
 
 // SelectedFileItem represents a selected file in the selection list
@@ -26,6 +26,7 @@ var _ list.DefaultItem = SelectedFileItem{}
 
 // MultiSelector combines filepicker and list for multi-selection
 type MultiSelector struct {
+	poly.Atom
 	filepicker       filepicker.Model
 	selectedList     list.Model
 	config           Config
@@ -88,11 +89,11 @@ func NewMultiSelector(config Config) *MultiSelector {
 	}
 
 	return &MultiSelector{
+		Atom:             poly.NewAtom(config.Title),
 		filepicker:       fp,
 		selectedList:     selectedList,
 		config:           config,
 		selected:         make(map[string]SelectedFileItem),
-		name:             config.Title,
 		showingSelection: false,
 	}
 }
@@ -177,11 +178,7 @@ func (ms MultiSelector) getSelectionType() SelectionType {
 	}
 }
 
-var _ atom.Model = MultiSelector{}
-
-func (ms MultiSelector) Name() string {
-	return ms.name
-}
+var _ poly.Atomic = MultiSelector{}
 
 func (ms MultiSelector) Init() tea.Cmd {
 	return tea.Sequence(
@@ -190,7 +187,7 @@ func (ms MultiSelector) Init() tea.Cmd {
 	)
 }
 
-func (ms MultiSelector) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
+func (ms MultiSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		ms.filepicker.SetHeight(msg.Height)
@@ -212,22 +209,16 @@ func (ms MultiSelector) Update(msg tea.Msg) (atom.Model, tea.Cmd) {
 			if len(ms.selected) > 0 {
 				paths := ms.getSelectedPaths()
 				selectionType := ms.getSelectionType()
-				return ms, tea.Sequence(
-					FileSelection(paths, selectionType),
-					atom.Pop(),
-				)
+				return nil, FileSelection(paths, selectionType)
 			}
-			return ms, atom.Pop()
+			return ms, nil
 
 		case "enter":
 			if ms.showingSelection && len(ms.selected) > 0 {
 				// Confirm selection from selection view
 				paths := ms.getSelectedPaths()
 				selectionType := ms.getSelectionType()
-				return ms, tea.Sequence(
-					FileSelection(paths, selectionType),
-					atom.Pop(),
-				)
+				return nil, FileSelection(paths, selectionType)
 			}
 			// Handle in filepicker view below
 
