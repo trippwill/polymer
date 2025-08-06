@@ -1,33 +1,38 @@
 package util
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-var currentId uint32 = 1
+var current uint32 = 1
 
-// NewId generates a new unique identifier.
-func NewId() uint32 {
-	currentId++
-	localId := currentId
-	return localId
+// GetCurrentId returns the current unique identifier without incrementing it.
+func GetCurrentId() uint32 { return current }
+
+// GetNextId returns the next unique identifier and increments the current ID.
+func GetNextId() uint32 {
+	local := current
+	current++
+	return local
+}
+
+// NewUniqueId generates a new unique identifier
+// from the provided prefix and a unique number.
+func NewUniqueId(prefix string) string {
+	return fmt.Sprintf("%s-%d", prefix, GetNextId())
+}
+
+// NewUniqeTypeId generates a unique identifier based on the type of T and a unique number.
+// This is useful for creating unique IDs for components or models.
+func NewUniqeTypeId[T any]() string {
+	return NewUniqueId(fmt.Sprintf("%T", new(T)))
 }
 
 // Broadcast sends a message to the event loop.
 func Broadcast[T any](msg T) tea.Cmd {
 	return func() tea.Msg {
 		return msg
-	}
-}
-
-// ContextMsg carries context data.
-type ContextMsg[T any] struct {
-	Context T
-}
-
-// ContextUpdate sends a context message.
-func ContextUpdate[T any](ctx T) tea.Cmd {
-	return func() tea.Msg {
-		return ContextMsg[T]{Context: ctx}
 	}
 }

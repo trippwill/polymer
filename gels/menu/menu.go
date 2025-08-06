@@ -1,50 +1,33 @@
-// Package menu provides a simple menu system for selecting and activating Atoms.
+// Package menu provides a simple menu system for selecting and activating [poly.Atomic]s.
 package menu
 
 import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	poly "github.com/trippwill/polymer"
+	"github.com/trippwill/polymer/poly"
+	"github.com/trippwill/polymer/poly/router"
+	"github.com/trippwill/polymer/trace"
+	"github.com/trippwill/polymer/util"
 )
 
-// Item is a menu item that contains an Atom and a description.
-type Item struct {
-	poly.Atomic
-	description string
-}
-
-func NewItem(atom poly.Atomic, description string) Item {
-	return Item{
-		Atomic:      atom,
-		description: description,
-	}
-}
-
-var _ list.DefaultItem = Item{}
-
-func (m Item) Title() string       { return m.Name() }
-func (m Item) Description() string { return m.description }
-func (m Item) FilterValue() string { return m.Name() + " " + m.description }
-
-// Menu displays a list of options and activates the selected Atom.
-type Menu struct {
-	poly.Atom
-	list     list.Model
-	selected tea.Model
+// Menu displays a list of [Item]s and activates the selected one.
+type Menu[X any] struct {
+	router.Router[list.Model, poly.Atomic[X]]
+	id string
 }
 
 // NewMenu creates a new Menu with the given title and items.
-func NewMenu(title string, items ...Item) *Menu {
+func NewMenu[T any](title string, items ...Item[T]) Menu[T] {
 	listItems := make([]list.Item, len(items))
 	for i, item := range items {
-		listItems[i] = &item
+		listItems[i] = item
 	}
 
-	l := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
-	l.Title = title
+	displayList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
+	displayList.Title = title
 
-	l.AdditionalShortHelpKeys = func() []key.Binding {
+	displayList.AdditionalShortHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			key.NewBinding(
 				key.WithKeys("enter"),
@@ -57,70 +40,67 @@ func NewMenu(title string, items ...Item) *Menu {
 		}
 	}
 
-	return &Menu{
-		Atom: poly.NewAtom(title),
-		list: l,
+	return Menu[T]{
+		Router: router.NewRouter[list.Model, poly.Atomic[T]](displayList, nil, router.SlotT),
+		id:     util.NewUniqeTypeId[Menu[T]](),
 	}
 }
 
 // ConfigureList configures the underlying list model of the Menu.
-func (m *Menu) ConfigureList(fn func(*list.Model)) {
+func (m *Menu[T]) ConfigureList(fn func(*list.Model)) {
 	if fn != nil {
-		fn(&m.list)
+		m.ApplyT(fn)
 	}
 }
 
-var _ poly.Modal = Menu{}
+// Id implements [poly.Identifier].
+func (m Menu[I]) Id() string { return m.id }
 
-func (m Menu) GetCurrent() poly.Atomic {
-	switch selected := m.selected.(type) {
-	case nil:
-		return m
-	case poly.Atomic:
-		return selected
-	default:
-		return poly.NewAtomicTea(selected, "Selected")
-	}
+// Init implements [poly.Initializer].
+func (m Menu[T]) Init() tea.Cmd { return tea.WindowSize() }
+
+var _ poly.Atomic[any] = Menu[any]{}
+
+// SetContext implements [poly.Atomic].
+func (m Menu[I]) SetContext(context I) poly.Atomic[I] {
+	// no-op for Menu, as it doesn't use context
+	return m
 }
 
-var _ poly.Atomic = Menu{}
-
-func (m Menu) Init() tea.Cmd { return tea.WindowSize() }
-
-func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// Update implements [poly.Atomic].
+func (m Menu[T]) Update(msg tea.Msg) (poly.Atomic[T], tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height)
+		m.ApplyT(func(slot *list.Model) {
+			slot.SetSize(msg.Width, msg.Height)
+		})
 
 	case tea.KeyMsg:
-		if m.selected == nil {
+		if m.GetTarget() == router.SlotT {
 			switch msg.String() {
 			case "enter":
-				if selected, ok := m.list.SelectedItem().(*Item); ok && selected != nil {
-					m.selected = selected.Atomic
-					return m, m.selected.Init()
+				if selected, ok := m.GetSlotAsT().SelectedItem().(Item[T]); ok && selected != nil {
+					m.SlotU = selected
+					m.SetTarget(router.SlotU)
+					return m, tea.Batch(poly.OptionalInit(selected), trace.TraceInfo("Selected item: "+selected.Title()))
 				}
 
 			case "esc":
-				return nil, nil
+				return nil, trace.TraceDebug("Exiting menu")
 			}
 		}
 	}
 
-	var cmd tea.Cmd
-	if m.selected != nil {
-		m.selected, cmd = m.selected.Update(msg)
-		return m, cmd
+	if m.GetSlotAsU() == nil {
+		m.SetTarget(router.SlotT)
 	}
 
-	m.list, cmd = m.list.Update(msg)
+	var cmd tea.Cmd
+	m.Router, cmd = m.Route(msg)
 	return m, cmd
 }
 
-func (m Menu) View() string {
-	if m.selected != nil {
-		return m.selected.View()
-	}
-
-	return m.list.View()
+// View implements [poly.Atomic].
+func (m Menu[T]) View() string {
+	return m.Render()
 }
