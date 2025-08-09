@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/trippwill/polymer/poly"
-	"github.com/trippwill/polymer/poly/router"
+	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/trace"
 	"github.com/trippwill/polymer/util"
 )
@@ -14,10 +14,11 @@ import (
 // Menu displays a list of [Item]s and activates the selected one.
 type Menu[X any] struct {
 	router.Router[list.Model, poly.Atomic[X]]
-	id string
+	id  string
+	log trace.Tracer
 }
 
-// NewMenu creates a new Menu with the given title and items.
+// NewMenu creates a new [Menu] with the given title and items.
 func NewMenu[T any](title string, items ...Item[T]) Menu[T] {
 	listItems := make([]list.Item, len(items))
 	for i, item := range items {
@@ -40,16 +41,21 @@ func NewMenu[T any](title string, items ...Item[T]) Menu[T] {
 		}
 	}
 
+	id := util.NewUniqueId(title)
 	return Menu[T]{
 		Router: router.NewRouter[list.Model, poly.Atomic[T]](displayList, nil, router.SlotT),
-		id:     util.NewUniqeTypeId[Menu[T]](),
+		id:     id,
+		log:    trace.NewTracerWithId(trace.CategoryMenu, id),
 	}
 }
 
 // ConfigureList configures the underlying list model of the Menu.
 func (m *Menu[T]) ConfigureList(fn func(*list.Model)) {
 	if fn != nil {
+		m.log.Trace("Configuring list model with custom function")
 		m.ApplyT(fn)
+	} else {
+		m.log.Warn("No configuration function provided for list model")
 	}
 }
 
@@ -72,6 +78,7 @@ func (m Menu[T]) Update(msg tea.Msg) (poly.Atomic[T], tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.ApplyT(func(slot *list.Model) {
+			m.log.Trace("Updating window size for list model")
 			slot.SetSize(msg.Width, msg.Height)
 		})
 
@@ -82,11 +89,13 @@ func (m Menu[T]) Update(msg tea.Msg) (poly.Atomic[T], tea.Cmd) {
 				if selected, ok := m.GetSlotAsT().SelectedItem().(Item[T]); ok && selected != nil {
 					m.SlotU = selected
 					m.SetTarget(router.SlotU)
-					return m, tea.Batch(poly.OptionalInit(selected), trace.TraceInfo("Selected item: "+selected.Title()))
+					m.log.Trace("Selected item: %s", selected.Title())
+					return m, poly.OptionalInit(selected)
 				}
 
 			case "esc":
-				return nil, trace.TraceDebug("Exiting menu")
+				m.log.Trace("Escape key pressed, going back")
+				return nil, nil
 			}
 		}
 	}
