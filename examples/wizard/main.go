@@ -6,31 +6,12 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/gels/menu"
 	"github.com/trippwill/polymer/poly"
+	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/util"
 )
-
-// QuitAtom is a simple Atom that quits the application immediately.
-type QuitAtom struct {
-	id string
-}
-
-func NewQuitAtom() poly.Atomic[any] {
-	return QuitAtom{
-		id: util.NewUniqeTypeId[QuitAtom](),
-	}
-}
-
-var _ poly.Atomic[any] = (*QuitAtom)(nil)
-
-func (q QuitAtom) Init() tea.Cmd                                  { return tea.Quit }
-func (q QuitAtom) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) { return q, nil }
-func (q QuitAtom) View() string                                   { return "Goodbye!\n" }
-func (q QuitAtom) SetContext(ctx any) poly.Atomic[any] {
-	// No context needed for QuitAtom
-	return q
-}
 
 // NamePromptScreen is an Atom that prompts the user to enter their name.
 type NamePromptScreen struct {
@@ -38,7 +19,7 @@ type NamePromptScreen struct {
 	input string
 }
 
-func NewNamePromptScreen() poly.Atomic[any] {
+func NewNamePromptScreen() NamePromptScreen {
 	return NamePromptScreen{
 		id: util.NewUniqeTypeId[NamePromptScreen](),
 	}
@@ -79,7 +60,7 @@ type GreetingScreen struct {
 	Value string
 }
 
-func NewGreetingScreen(name string) poly.Atomic[any] {
+func NewGreetingScreen(name string) GreetingScreen {
 	return GreetingScreen{
 		id:    util.NewUniqeTypeId[any](),
 		Value: name,
@@ -104,9 +85,8 @@ func (g GreetingScreen) SetContext(ctx any) poly.Atomic[any] {
 }
 
 type app struct {
-	id       string // Unique identifier for the app
-	menu     poly.Atomic[any]
-	greeting poly.Atomic[any]
+	router router.Router[poly.Atomic[any], poly.Atomic[any]] // Router to manage screens
+	id     string                                            // Unique identifier for the app
 }
 
 func NewApp() poly.Atomic[any] {
@@ -114,47 +94,37 @@ func NewApp() poly.Atomic[any] {
 	menu := menu.NewMenu(
 		"Name Wizard",
 		menu.AdaptItem(NewNamePromptScreen(), "Name Wizard", "Enter your name"),
-		menu.AdaptItem(NewQuitAtom(), "Quit", "Exit Application"),
+		menu.AdaptItem(atoms.NewQuitAtom(), "Quit", "Exit Application"),
 	)
 
-	return app{menu: menu, id: util.NewUniqeTypeId[app](), greeting: nil}
+	return app{
+		router: router.NewRouter[poly.Atomic[any], poly.Atomic[any]](menu, nil, router.SlotT),
+		id:     util.NewUniqeTypeId[app](),
+	}
 }
-
-// func (a app) GetCurrent() poly.Identifier {
-// 	if a.greeting != nil {
-// 		return a.greeting
-// 	}
-//
-// 	return a.menu
-// }
 
 func (a app) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) {
 	if greeting, ok := msg.(GreetingScreen); ok {
-		a.greeting = greeting
+		a.router.ApplyU(func(slot *poly.Atomic[any]) {
+			*slot = greeting
+		})
+		a.router.SetTarget(router.SlotU)
 		return a, nil
 	}
 
-	if a.greeting != nil {
-		next, cmd := a.greeting.Update(msg)
-		a.greeting = next
-		return a, cmd
+	a.router.SetTarget(router.SlotT)
+
+	var cmd tea.Cmd
+	a.router, cmd = a.router.Route(msg)
+	if a.router.GetSlotAsT() == nil {
+		return a, tea.Quit
 	}
 
-	next, cmd := a.menu.Update(msg)
-	if next == nil {
-		return a, tea.Sequence(cmd, tea.Quit)
-	}
-
-	a.menu = next
 	return a, cmd
 }
 
 func (a app) View() string {
-	if a.greeting != nil {
-		return a.greeting.View()
-	}
-
-	return a.menu.View()
+	return a.router.Render()
 }
 
 func (a app) SetContext(ctx any) poly.Atomic[any] {
@@ -169,7 +139,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer f.Close()
-	logger := log.New(f, "polymer", log.Lmsgprefix)
 
 	root := NewApp()
 
@@ -181,6 +150,6 @@ func main() {
 
 	p := tea.NewProgram(host)
 	if _, err := p.Run(); err != nil {
-		logger.Fatalf("Application failed: %v", err)
+		log.Fatalf("Application failed: %v", err)
 	}
 }

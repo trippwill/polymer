@@ -44,7 +44,7 @@ func (h Host[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	h.log.Trace("Host %s received message: %T", h.name, msg)
 	switch msg := msg.(type) {
 	case error:
-		log.Fatal("Error in host:", msg)
+		log.Fatal("Error in application:", msg)
 	case *ContextMsg[T]:
 		if h.state != nil {
 			h.log.Debug("Host %s received context message: %v", h.name, msg.Context)
@@ -72,6 +72,7 @@ func (h Host[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View implements [tea.Model].
 func (h Host[T]) View() string {
 	if h.state == nil {
+		h.log.Warn("Host %s state is nil, returning empty view.", h.name)
 		return ""
 	}
 

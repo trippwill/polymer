@@ -49,11 +49,12 @@ func (e ItemAdapter[T]) View() string {
 	return e.Atomic.View()
 }
 
+// SetContext implements [poly.Atomic].
+func (e ItemAdapter[T]) SetContext(ctx T) poly.Atomic[T] {
+	return e.Atomic.SetContext(ctx)
+}
+
 // Init implements [poly.Initializer].
 func (e ItemAdapter[T]) Init() tea.Cmd {
-	if initModel, ok := e.Atomic.(poly.Initializer); ok {
-		return initModel.Init()
-	}
-
-	return nil
+	return poly.OptionalInit(e.Atomic)
 }

@@ -30,7 +30,7 @@ func NewRouter[T Routable[T], U Routable[U]](
 
 // SetTarget sets the active slot.
 func (r *Router[T, U]) SetTarget(slot Slot) {
-	r.log.Trace("Setting target slot to %s", slot)
+	r.log.Trace("Setting target slot to %s T:%T U:%T", slot, r.SlotT, r.SlotU)
 	r.target = slot
 }
 
@@ -44,7 +44,7 @@ func (r Router[T, U]) GetSlotAsT() *T {
 	if slot, ok := r.SlotT.(T); ok {
 		return &slot
 	}
-	r.log.Trace("SlotT is not of type T, returning nil")
+	r.log.Trace("SlotT is not of type T T:%T, returning nil", r.SlotT)
 	return nil
 }
 
@@ -53,29 +53,34 @@ func (r Router[T, U]) GetSlotAsU() *U {
 	if slot, ok := r.SlotU.(U); ok {
 		return &slot
 	}
-	r.log.Trace("SlotU is not of type U, returning nil")
+	r.log.Trace("SlotU is not of type U U:%T, returning nil", r.SlotU)
 	return nil
 }
 
 // ApplyT applies a function to the SlotT Routable.
 func (r *Router[T, U]) ApplyT(fn func(slot *T)) {
+	r.log.Trace("Applying function to SlotT of type %T", r.SlotT)
 	if t, ok := r.SlotT.(T); ok {
-		r.log.Trace("Applying function to SlotT of type %T", t)
 		fn(&t)
 		r.SlotT = t
 	} else {
-		r.log.Trace("SlotT is not of type T, cannot apply function")
+		var t T
+		fn(&t)
+		r.SlotT = t
 	}
 }
 
 // ApplyU applies a function to the SlotU Routable.
 func (r *Router[T, U]) ApplyU(fn func(slot *U)) {
+	r.log.Trace("Applying function to SlotU of type %T", r.SlotU)
 	if u, ok := r.SlotU.(U); ok {
-		r.log.Trace("Applying function to SlotU of type %T", u)
 		fn(&u)
 		r.SlotU = u
 	} else {
-		r.log.Trace("SlotU is not of type U, cannot apply function")
+		r.log.Debug("SlotU is nil, applying function to nil")
+		var u U
+		fn(&u)
+		r.SlotU = u
 	}
 }
 
@@ -83,12 +88,14 @@ func (r *Router[T, U]) ApplyU(fn func(slot *U)) {
 func (r Router[T, U]) Route(msg tea.Msg) (Router[T, U], tea.Cmd) {
 	switch r.target {
 	case SlotT:
+		r.log.Trace("Routing message to SlotT of type %T", r.SlotT)
 		if r.SlotT != nil {
 			var cmd tea.Cmd
 			r.SlotT, cmd = r.SlotT.Update(msg)
 			return r, cmd
 		}
 	case SlotU:
+		r.log.Trace("Routing message to SlotU of type %T", r.SlotU)
 		if r.SlotU != nil {
 			var cmd tea.Cmd
 			r.SlotU, cmd = r.SlotU.Update(msg)
@@ -107,18 +114,14 @@ func (r Router[T, U]) Route(msg tea.Msg) (Router[T, U], tea.Cmd) {
 func (r Router[T, U]) Render() string {
 	switch r.target {
 	case SlotT:
-		r.log.Trace("Rendering SlotT view")
+		r.log.Trace("Rendering SlotT of type %T", r.SlotT)
 		if r.SlotT != nil {
 			return r.SlotT.View()
-		} else {
-			r.log.Trace("SlotT is nil, cannot render view")
 		}
 	case SlotU:
-		r.log.Trace("Rendering SlotU view")
+		r.log.Trace("Rendering SlotU of type %T", r.SlotU)
 		if r.SlotU != nil {
 			return r.SlotU.View()
-		} else {
-			r.log.Trace("SlotU is nil, cannot render view")
 		}
 	}
 

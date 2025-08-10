@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/trippwill/polymer/router"
 )
 
 // Atomic components are the building blocks of a Polymer application.
@@ -100,4 +101,20 @@ func (t Atom[X]) View() string {
 	}
 
 	return t.Model.View()
+}
+
+type AtomicRouter[X any] struct {
+	router.Router[Atomic[X], Atomic[X]]
+}
+
+func NewAtomicRouter[X any](initial Atomic[X], fallback Atomic[X], target router.Slot) AtomicRouter[X] {
+	rtr := router.NewRouter(initial, fallback, target)
+	return AtomicRouter[X]{
+		Router: rtr,
+	}
+}
+
+func (r AtomicRouter[T]) Route(msg tea.Msg) (AtomicRouter[T], tea.Cmd) {
+	next, cmd := r.Router.Route(msg)
+	return AtomicRouter[T]{Router: next}, cmd
 }

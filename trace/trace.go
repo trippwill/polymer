@@ -5,6 +5,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/trippwill/polymer/util"
 )
 
 var DefaultLevel = LevelTrace
@@ -107,6 +109,7 @@ func NewTracer(category Category) Tracer {
 		return &activeTracer{
 			category: category,
 			minLevel: MinTraceLevel(),
+			id:       util.NewUniqueId("#"),
 		}
 	} else {
 		return &inactiveTracer{}

@@ -19,7 +19,7 @@ type Menu[X any] struct {
 }
 
 // NewMenu creates a new [Menu] with the given title and items.
-func NewMenu[T any](title string, items ...Item[T]) Menu[T] {
+func NewMenu[X any](title string, items ...Item[X]) *Menu[X] {
 	listItems := make([]list.Item, len(items))
 	for i, item := range items {
 		listItems[i] = item
@@ -42,15 +42,15 @@ func NewMenu[T any](title string, items ...Item[T]) Menu[T] {
 	}
 
 	id := util.NewUniqueId(title)
-	return Menu[T]{
-		Router: router.NewRouter[list.Model, poly.Atomic[T]](displayList, nil, router.SlotT),
+	return &Menu[X]{
+		Router: router.NewRouter[list.Model, poly.Atomic[X]](displayList, nil, router.SlotT),
 		id:     id,
 		log:    trace.NewTracerWithId(trace.CategoryMenu, id),
 	}
 }
 
 // ConfigureList configures the underlying list model of the Menu.
-func (m *Menu[T]) ConfigureList(fn func(*list.Model)) {
+func (m *Menu[X]) ConfigureList(fn func(*list.Model)) {
 	if fn != nil {
 		m.log.Trace("Configuring list model with custom function")
 		m.ApplyT(fn)
@@ -60,21 +60,21 @@ func (m *Menu[T]) ConfigureList(fn func(*list.Model)) {
 }
 
 // Id implements [poly.Identifier].
-func (m Menu[I]) Id() string { return m.id }
+func (m Menu[X]) Id() string { return m.id }
 
 // Init implements [poly.Initializer].
-func (m Menu[T]) Init() tea.Cmd { return tea.WindowSize() }
+func (m Menu[X]) Init() tea.Cmd { return tea.WindowSize() }
 
 var _ poly.Atomic[any] = Menu[any]{}
 
 // SetContext implements [poly.Atomic].
-func (m Menu[I]) SetContext(context I) poly.Atomic[I] {
+func (m Menu[X]) SetContext(context X) poly.Atomic[X] {
 	// no-op for Menu, as it doesn't use context
 	return m
 }
 
 // Update implements [poly.Atomic].
-func (m Menu[T]) Update(msg tea.Msg) (poly.Atomic[T], tea.Cmd) {
+func (m Menu[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.ApplyT(func(slot *list.Model) {
@@ -86,7 +86,7 @@ func (m Menu[T]) Update(msg tea.Msg) (poly.Atomic[T], tea.Cmd) {
 		if m.GetTarget() == router.SlotT {
 			switch msg.String() {
 			case "enter":
-				if selected, ok := m.GetSlotAsT().SelectedItem().(Item[T]); ok && selected != nil {
+				if selected, ok := m.GetSlotAsT().SelectedItem().(Item[X]); ok && selected != nil {
 					m.SlotU = selected
 					m.SetTarget(router.SlotU)
 					m.log.Trace("Selected item: %s", selected.Title())
@@ -110,6 +110,6 @@ func (m Menu[T]) Update(msg tea.Msg) (poly.Atomic[T], tea.Cmd) {
 }
 
 // View implements [poly.Atomic].
-func (m Menu[T]) View() string {
+func (m Menu[X]) View() string {
 	return m.Render()
 }
