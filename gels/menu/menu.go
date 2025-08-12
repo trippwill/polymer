@@ -1,4 +1,4 @@
-// Package menu provides a simple menu system for selecting and activating [poly.Atomic]s.
+// Package menu is a simple menu system for selecting and activating [poly.Atomic]s.
 package menu
 
 import (
@@ -6,14 +6,15 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/trippwill/polymer/poly"
-	"github.com/trippwill/polymer/router"
+	"github.com/trippwill/polymer/router/multi"
 	"github.com/trippwill/polymer/trace"
 	"github.com/trippwill/polymer/util"
 )
 
 // Menu displays a list of [Item]s and activates the selected one.
 type Menu[X any] struct {
-	router.Router[list.Model, poly.Atomic[X]]
+	multi.Router[list.Model, poly.Atomic[X]]
+	ctx X
 	id  string
 	log trace.Tracer
 }
@@ -43,7 +44,7 @@ func NewMenu[X any](title string, items ...Item[X]) *Menu[X] {
 
 	id := util.NewUniqueId(title)
 	return &Menu[X]{
-		Router: router.NewRouter[list.Model, poly.Atomic[X]](displayList, nil, router.SlotT),
+		Router: multi.NewRouter[list.Model, poly.Atomic[X]](displayList, nil, multi.SlotT),
 		id:     id,
 		log:    trace.NewTracerWithId(trace.CategoryMenu, id),
 	}
@@ -53,7 +54,7 @@ func NewMenu[X any](title string, items ...Item[X]) *Menu[X] {
 func (m *Menu[X]) ConfigureList(fn func(*list.Model)) {
 	if fn != nil {
 		m.log.Trace("Configuring list model with custom function")
-		m.ApplyT(fn)
+		m.Router = m.ConfigureT(fn)
 	} else {
 		m.log.Warn("No configuration function provided for list model")
 	}
@@ -67,28 +68,37 @@ func (m Menu[X]) Init() tea.Cmd { return tea.WindowSize() }
 
 var _ poly.Atomic[any] = Menu[any]{}
 
-// SetContext implements [poly.Atomic].
-func (m Menu[X]) SetContext(context X) poly.Atomic[X] {
-	// no-op for Menu, as it doesn't use context
-	return m
+// SetContext implements [poly.ContextAware].
+func (m *Menu[X]) SetContext(context X) {
+	m.ctx = context
 }
 
 // Update implements [poly.Atomic].
 func (m Menu[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.ApplyT(func(slot *list.Model) {
+		m.Router = m.ConfigureT(func(slot *list.Model) {
 			m.log.Trace("Updating window size for list model")
 			slot.SetSize(msg.Width, msg.Height)
 		})
 
 	case tea.KeyMsg:
-		if m.GetTarget() == router.SlotT {
+		if m.Target() == multi.SlotT {
 			switch msg.String() {
 			case "enter":
-				if selected, ok := m.GetSlotAsT().SelectedItem().(Item[X]); ok && selected != nil {
-					m.SlotU = selected
-					m.SetTarget(router.SlotU)
+				if selected, ok := m.GetT().(list.Model).SelectedItem().(Item[X]); ok {
+					if selected == nil {
+						m.log.Warn("Selected item is nil, cannot proceed")
+						return m, nil
+					}
+
+					if contextAware, ok := selected.(poly.ContextAware[X]); ok {
+						m.log.Trace("Setting context for selected item: %s", selected.Title())
+						contextAware.SetContext(m.ctx)
+					}
+
+					m.Router = m.SetU(selected)
+					m.SetTarget(multi.SlotU)
 					m.log.Trace("Selected item: %s", selected.Title())
 					return m, poly.OptionalInit(selected)
 				}
@@ -100,8 +110,8 @@ func (m Menu[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) {
 		}
 	}
 
-	if m.GetSlotAsU() == nil {
-		m.SetTarget(router.SlotT)
+	if !m.IsSet(multi.SlotU) {
+		m.SetTarget(multi.SlotT)
 	}
 
 	var cmd tea.Cmd

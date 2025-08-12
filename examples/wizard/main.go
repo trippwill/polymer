@@ -9,7 +9,7 @@ import (
 	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/gels/menu"
 	"github.com/trippwill/polymer/poly"
-	"github.com/trippwill/polymer/router"
+	"github.com/trippwill/polymer/router/auto"
 	"github.com/trippwill/polymer/util"
 )
 
@@ -25,9 +25,9 @@ func NewNamePromptScreen() NamePromptScreen {
 	}
 }
 
-var _ poly.Atomic[any] = (*NamePromptScreen)(nil)
+var _ poly.Atomic[string] = NamePromptScreen{}
 
-func (n NamePromptScreen) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) {
+func (n NamePromptScreen) Update(msg tea.Msg) (poly.Atomic[string], tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -40,7 +40,7 @@ func (n NamePromptScreen) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) {
 			}
 			return n, nil
 		case tea.KeyEnter:
-			return nil, util.Broadcast(NewGreetingScreen(n.input))
+			return nil, util.Broadcast(poly.ContextMsg[string]{Context: n.input})
 		}
 	}
 	return n, nil
@@ -50,26 +50,21 @@ func (n NamePromptScreen) View() string {
 	return "Enter your name: " + n.input + "\n"
 }
 
-func (n NamePromptScreen) SetContext(ctx any) poly.Atomic[any] {
-	return n // No context needed for NamePromptScreen
-}
-
 // GreetingScreen is an Model that greets the user by name.
 type GreetingScreen struct {
 	id    string // Unique identifier for the screen
-	Value string
+	value string
 }
 
-func NewGreetingScreen(name string) GreetingScreen {
+func NewGreetingScreen() GreetingScreen {
 	return GreetingScreen{
-		id:    util.NewUniqeTypeId[any](),
-		Value: name,
+		id: util.NewUniqeTypeId[GreetingScreen](),
 	}
 }
 
-var _ poly.Atomic[any] = (*GreetingScreen)(nil)
+var _ poly.Atomic[string] = GreetingScreen{}
 
-func (g GreetingScreen) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) {
+func (g GreetingScreen) Update(msg tea.Msg) (poly.Atomic[string], tea.Cmd) {
 	if _, ok := msg.(tea.KeyMsg); ok {
 		return nil, nil
 	}
@@ -77,46 +72,47 @@ func (g GreetingScreen) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) {
 }
 
 func (g GreetingScreen) View() string {
-	return "\nHello, " + g.Value + "! (press any key to return)\n"
+	return "\nHello, " + g.value + "! (press any key to return)\n"
 }
 
-func (g GreetingScreen) SetContext(ctx any) poly.Atomic[any] {
-	return g
+func (g *GreetingScreen) SetContext(ctx string) {
+	g.value = ctx // Set the context to the name entered
 }
 
 type app struct {
-	router router.Router[poly.Atomic[any], poly.Atomic[any]] // Router to manage screens
-	id     string                                            // Unique identifier for the app
+	router auto.Auto[poly.Atomic[string]] // Router to manage screens
+	id     string                         // Unique identifier for the app
 }
 
-func NewApp() poly.Atomic[any] {
+func NewApp() poly.Atomic[string] {
 	// Create the menu with the name prompt and greeting screens
 	menu := menu.NewMenu(
 		"Name Wizard",
 		menu.AdaptItem(NewNamePromptScreen(), "Name Wizard", "Enter your name"),
-		menu.AdaptItem(atoms.NewQuitAtom(), "Quit", "Exit Application"),
+		menu.AdaptItem(atoms.NewQuitAtom[string](), "Quit", "Exit Application"),
 	)
 
 	return app{
-		router: router.NewRouter[poly.Atomic[any], poly.Atomic[any]](menu, nil, router.SlotT),
+		router: auto.NewAuto(menu, nil),
 		id:     util.NewUniqeTypeId[app](),
 	}
 }
 
-func (a app) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) {
-	if greeting, ok := msg.(GreetingScreen); ok {
-		a.router.ApplyU(func(slot *poly.Atomic[any]) {
-			*slot = greeting
-		})
-		a.router.SetTarget(router.SlotU)
+func (a app) Update(msg tea.Msg) (poly.Atomic[string], tea.Cmd) {
+	if name, ok := msg.(poly.ContextMsg[string]); ok {
+		greetingScreen := NewGreetingScreen()
+		greetingScreen.SetContext(name.Context)
+		a.router = a.router.Set(auto.SlotOverride, greetingScreen)
 		return a, nil
 	}
 
-	a.router.SetTarget(router.SlotT)
+	a.router = a.router.Set(auto.SlotOverride, nil)
 
 	var cmd tea.Cmd
 	a.router, cmd = a.router.Route(msg)
-	if a.router.GetSlotAsT() == nil {
+
+	// The menu has quit
+	if !a.router.IsSet(auto.SlotPrimary) {
 		return a, tea.Quit
 	}
 
@@ -127,8 +123,8 @@ func (a app) View() string {
 	return a.router.Render()
 }
 
-func (a app) SetContext(ctx any) poly.Atomic[any] {
-	return a // No context needed for the app
+func (a *app) SetContext(ctx string) {
+	auto.SetContext(&a.router, ctx)
 }
 
 func main() {

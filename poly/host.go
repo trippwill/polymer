@@ -46,9 +46,9 @@ func (h Host[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case error:
 		log.Fatal("Error in application:", msg)
 	case *ContextMsg[T]:
-		if h.state != nil {
+		if contextAware, ok := h.state.(ContextAware[T]); ok {
 			h.log.Debug("Host %s received context message: %v", h.name, msg.Context)
-			h.state = h.state.SetContext(msg.Context)
+			contextAware.SetContext(msg.Context)
 		} else {
 			h.log.Warn("Host %s received context message but state is nil, ignoring.", h.name)
 		}

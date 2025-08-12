@@ -7,22 +7,18 @@ import (
 )
 
 // QuitAtom is a simple Atom that quits the application immediately.
-type QuitAtom struct {
+type QuitAtom[X any] struct {
 	id string
 }
 
-func NewQuitAtom() poly.Atomic[any] {
-	return QuitAtom{
-		id: util.NewUniqeTypeId[QuitAtom](),
+func NewQuitAtom[X any]() poly.Atomic[X] {
+	return QuitAtom[X]{
+		id: util.NewUniqeTypeId[QuitAtom[X]](),
 	}
 }
 
-var _ poly.Atomic[any] = (*QuitAtom)(nil)
+var _ poly.Atomic[any] = QuitAtom[any]{}
 
-func (q QuitAtom) Init() tea.Cmd                                  { return tea.Quit }
-func (q QuitAtom) Update(msg tea.Msg) (poly.Atomic[any], tea.Cmd) { return q, nil }
-func (q QuitAtom) View() string                                   { return "Goodbye!\n" }
-func (q QuitAtom) SetContext(ctx any) poly.Atomic[any] {
-	// No context needed for QuitAtom
-	return q
-}
+func (q QuitAtom[X]) Init() tea.Cmd                                { return tea.Quit }
+func (q QuitAtom[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) { return q, nil }
+func (q QuitAtom[X]) View() string                                 { return "Goodbye!\n" }

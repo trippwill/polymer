@@ -49,9 +49,13 @@ func (e ItemAdapter[T]) View() string {
 	return e.Atomic.View()
 }
 
-// SetContext implements [poly.Atomic].
-func (e ItemAdapter[T]) SetContext(ctx T) poly.Atomic[T] {
-	return e.Atomic.SetContext(ctx)
+var _ poly.ContextAware[any] = (*ItemAdapter[any])(nil)
+
+// SetContext implements [poly.ContextAware].
+func (e *ItemAdapter[T]) SetContext(ctx T) {
+	if contextAware, ok := e.Atomic.(poly.ContextAware[T]); ok {
+		contextAware.SetContext(ctx)
+	}
 }
 
 // Init implements [poly.Initializer].

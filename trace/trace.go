@@ -109,7 +109,7 @@ func NewTracer(category Category) Tracer {
 		return &activeTracer{
 			category: category,
 			minLevel: MinTraceLevel(),
-			id:       util.NewUniqueId("#"),
+			id:       util.NewUniqueId(""),
 		}
 	} else {
 		return &inactiveTracer{}
@@ -145,14 +145,14 @@ func (t *activeTracer) Debug(format string, args ...any) {
 // Info logs an info message if tracing is enabled and the level is sufficient.
 func (t *activeTracer) Info(format string, args ...any) {
 	if LevelInfo >= t.minLevel {
-		log.Printf("[INFO] %s{%s}: "+format+"\n", append([]any{t.category, t.id}, args...)...)
+		log.Printf("[INFO]  %s{%s}: "+format+"\n", append([]any{t.category, t.id}, args...)...)
 	}
 }
 
 // Warn logs a warning message if tracing is enabled and the level is sufficient.
 func (t *activeTracer) Warn(format string, args ...any) {
 	if LevelWarn >= t.minLevel {
-		log.Printf("[WARN] %s{%s}: "+format+"\n", append([]any{t.category, t.id}, args...)...)
+		log.Printf("[WARN]  %s{%s}: "+format+"\n", append([]any{t.category, t.id}, args...)...)
 	}
 }
 

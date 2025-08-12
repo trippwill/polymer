@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/router"
+	"github.com/trippwill/polymer/router/multi"
 )
 
 // Atomic components are the building blocks of a Polymer application.
@@ -13,7 +13,10 @@ import (
 type Atomic[X any] interface {
 	Update(msg tea.Msg) (Atomic[X], tea.Cmd)
 	View() string
-	SetContext(context X) Atomic[X]
+}
+
+type ContextAware[X any] interface {
+	SetContext(context X)
 }
 
 // Initializer is for components that need to perform initialization.
@@ -82,7 +85,9 @@ func (t Atom[X]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if ctxMsg, ok := msg.(ContextMsg[X]); ok {
-		t.Model = t.Model.SetContext(ctxMsg.Context)
+		if contextual, ok := t.Model.(ContextAware[X]); ok {
+			contextual.SetContext(ctxMsg.Context)
+		}
 	}
 
 	next, cmd := t.Model.Update(msg)
@@ -104,11 +109,11 @@ func (t Atom[X]) View() string {
 }
 
 type AtomicRouter[X any] struct {
-	router.Router[Atomic[X], Atomic[X]]
+	multi.Router[Atomic[X], Atomic[X]]
 }
 
-func NewAtomicRouter[X any](initial Atomic[X], fallback Atomic[X], target router.Slot) AtomicRouter[X] {
-	rtr := router.NewRouter(initial, fallback, target)
+func NewAtomicRouter[X any](initial Atomic[X], fallback Atomic[X], target multi.Slot) AtomicRouter[X] {
+	rtr := multi.NewRouter(initial, fallback, target)
 	return AtomicRouter[X]{
 		Router: rtr,
 	}
