@@ -37,6 +37,21 @@ func NewAuto[T router.Routable[T]](prim, ovrd router.Routable[T]) Auto[T] {
 	}
 }
 
+// SetContext sets the context for both primary and override Routables if they implement atoms.ContextAware.
+func SetContext[T router.Routable[T], X any](auto *Auto[T], ctx X) {
+	if auto == nil {
+		return
+	}
+
+	if contextAware, ok := auto.primary.(atoms.ContextAware[X]); ok {
+		contextAware.SetContext(ctx)
+	}
+
+	if contextAware, ok := auto.override.(atoms.ContextAware[X]); ok {
+		contextAware.SetContext(ctx)
+	}
+}
+
 // Apply applies a function to the active Routable based on the specified slot,
 // returning the result of the function.
 func Apply[T router.Routable[T], U any](auto Auto[T], slot Slot, fn func(*T) U) U {
@@ -191,18 +206,4 @@ func (a Auto[T]) Render() string {
 
 	a.log.Warn("No active Routable to render")
 	return ""
-}
-
-func SetContext[T router.Routable[T], X any](auto *Auto[T], ctx X) {
-	if auto == nil {
-		return
-	}
-
-	if contextAware, ok := any(auto.primary).(atoms.ContextAware[X]); ok {
-		contextAware.SetContext(ctx)
-	}
-
-	if contextAware, ok := any(auto.override).(atoms.ContextAware[X]); ok {
-		contextAware.SetContext(ctx)
-	}
 }

@@ -2,6 +2,7 @@ package multi
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/trace"
 	"github.com/trippwill/polymer/util"
@@ -26,6 +27,21 @@ func NewRouter[T router.Routable[T], U router.Routable[U]](
 		slotU:  slotU,
 		target: initialTarget,
 		log:    trace.NewTracer(trace.CategoryRouter),
+	}
+}
+
+// SetContext sets the context for both SlotT and SlotU if they implement atoms.ContextAware.
+func SetContext[T router.Routable[T], U router.Routable[U], X any](r *Router[T, U], ctx X) {
+	if r == nil {
+		return
+	}
+
+	if contextAware, ok := r.slotT.(atoms.ContextAware[X]); ok {
+		contextAware.SetContext(ctx)
+	}
+
+	if contextAware, ok := r.slotU.(atoms.ContextAware[X]); ok {
+		contextAware.SetContext(ctx)
 	}
 }
 
