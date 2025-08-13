@@ -2,7 +2,7 @@ package auto
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/poly"
+	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/trace"
 )
@@ -198,11 +198,11 @@ func SetContext[T router.Routable[T], X any](auto *Auto[T], ctx X) {
 		return
 	}
 
-	if contextAware, ok := any(auto.primary).(poly.ContextAware[X]); ok {
+	if contextAware, ok := any(auto.primary).(atoms.ContextAware[X]); ok {
 		contextAware.SetContext(ctx)
 	}
 
-	if contextAware, ok := any(auto.override).(poly.ContextAware[X]); ok {
+	if contextAware, ok := any(auto.override).(atoms.ContextAware[X]); ok {
 		contextAware.SetContext(ctx)
 	}
 }

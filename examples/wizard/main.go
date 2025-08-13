@@ -8,14 +8,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/gels/menu"
-	"github.com/trippwill/polymer/poly"
 	"github.com/trippwill/polymer/router/auto"
 	"github.com/trippwill/polymer/util"
 )
 
-// NamePromptScreen is an Atom that prompts the user to enter their name.
+// NamePromptScreen prompts the user to enter their name.
 type NamePromptScreen struct {
-	id    string // Unique identifier for the screen
+	atoms.NilInit
+	id    string
 	input string
 }
 
@@ -25,9 +25,7 @@ func NewNamePromptScreen() NamePromptScreen {
 	}
 }
 
-var _ poly.Atomic[string] = NamePromptScreen{}
-
-func (n NamePromptScreen) Update(msg tea.Msg) (poly.Atomic[string], tea.Cmd) {
+func (n NamePromptScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -40,7 +38,7 @@ func (n NamePromptScreen) Update(msg tea.Msg) (poly.Atomic[string], tea.Cmd) {
 			}
 			return n, nil
 		case tea.KeyEnter:
-			return nil, util.Broadcast(poly.ContextMsg[string]{Context: n.input})
+			return nil, util.Broadcast(atoms.ContextMsg[string]{Context: n.input})
 		}
 	}
 	return n, nil
@@ -50,8 +48,9 @@ func (n NamePromptScreen) View() string {
 	return "Enter your name: " + n.input + "\n"
 }
 
-// GreetingScreen is an Model that greets the user by name.
+// GreetingScreen greets the user by name.
 type GreetingScreen struct {
+	atoms.NilInit
 	id    string // Unique identifier for the screen
 	value string
 }
@@ -62,9 +61,7 @@ func NewGreetingScreen() GreetingScreen {
 	}
 }
 
-var _ poly.Atomic[string] = GreetingScreen{}
-
-func (g GreetingScreen) Update(msg tea.Msg) (poly.Atomic[string], tea.Cmd) {
+func (g GreetingScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(tea.KeyMsg); ok {
 		return nil, nil
 	}
@@ -80,51 +77,49 @@ func (g *GreetingScreen) SetContext(ctx string) {
 }
 
 type app struct {
-	router auto.Auto[poly.Atomic[string]] // Router to manage screens
-	id     string                         // Unique identifier for the app
+	atoms.NilInit
+	auto.Auto[tea.Model]        // Router to manage screens
+	id                   string // Unique identifier for the app
 }
 
-func NewApp() poly.Atomic[string] {
-	// Create the menu with the name prompt and greeting screens
-	menu := menu.NewMenu(
+func NewApp() app {
+	menu := menu.NewMenu[string](
 		"Name Wizard",
-		menu.AdaptItem(NewNamePromptScreen(), "Name Wizard", "Enter your name"),
-		menu.AdaptItem(atoms.NewQuitAtom[string](), "Quit", "Exit Application"),
+		menu.AdaptItem[string](NewNamePromptScreen(), "Name Wizard", "Enter your name"),
+		menu.AdaptItem[string](menu.NewQuitAtom(), "Quit", "Exit Application"),
 	)
 
 	return app{
-		router: auto.NewAuto(menu, nil),
-		id:     util.NewUniqeTypeId[app](),
+		Auto: auto.NewAuto(menu, nil),
+		id:   util.NewUniqeTypeId[app](),
 	}
 }
 
-func (a app) Update(msg tea.Msg) (poly.Atomic[string], tea.Cmd) {
-	if name, ok := msg.(poly.ContextMsg[string]); ok {
+func (a app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if name, ok := msg.(atoms.ContextMsg[string]); ok {
 		greetingScreen := NewGreetingScreen()
 		greetingScreen.SetContext(name.Context)
-		a.router = a.router.Set(auto.SlotOverride, greetingScreen)
+		a.Auto = a.Set(auto.SlotOverride, greetingScreen)
 		return a, nil
 	}
 
-	a.router = a.router.Set(auto.SlotOverride, nil)
+	a.Auto = a.Set(auto.SlotOverride, nil)
 
 	var cmd tea.Cmd
-	a.router, cmd = a.router.Route(msg)
+	a.Auto, cmd = a.Route(msg)
 
 	// The menu has quit
-	if !a.router.IsSet(auto.SlotPrimary) {
+	if !a.IsSet(auto.SlotPrimary) {
 		return a, tea.Quit
 	}
 
 	return a, cmd
 }
 
-func (a app) View() string {
-	return a.router.Render()
-}
+func (a app) View() string { return a.Render() }
 
 func (a *app) SetContext(ctx string) {
-	auto.SetContext(&a.router, ctx)
+	auto.SetContext(&a.Auto, ctx)
 }
 
 func main() {
@@ -136,12 +131,10 @@ func main() {
 	}
 	defer f.Close()
 
-	root := NewApp()
-
 	// Create the host and start the Bubble Tea program
-	host := poly.NewHost(
+	host := atoms.NewHost[string](
 		"Polymer Integration Example",
-		root,
+		NewApp(),
 	)
 
 	p := tea.NewProgram(host)

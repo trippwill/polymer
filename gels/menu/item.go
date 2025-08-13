@@ -5,28 +5,28 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/poly"
+	"github.com/trippwill/polymer/atoms"
 )
 
 // Item is an interface for items that can be displayed in a Menu.
 type Item[T any] interface {
-	poly.Atomic[T] // Must be an Atomic[T] to be used in a Menu.
+	tea.Model
 	list.DefaultItem
 	Description() string // Description of the item.
 }
 
-// ItemAdapter wraps an Atomic[T] and provides a simple implementation of Item
-// by adding title and description fields.
+// ItemAdapter wraps a [tea.Model] providind a simple implementation of Item
+// by adding title and description fields, for use in a [Menu].
 type ItemAdapter[T any] struct {
-	poly.Atomic[T] // Must be an Atomic[T] to be used in a Menu.
-	title          string
-	description    string
+	tea.Model
+	title       string
+	description string
 }
 
 // AdaptItem creates a new [ItemAdapter] with the given model, title, and description.
-func AdaptItem[T any](model poly.Atomic[T], title, description string) *ItemAdapter[T] {
+func AdaptItem[T any](model tea.Model, title, description string) *ItemAdapter[T] {
 	return &ItemAdapter[T]{
-		Atomic:      model,
+		Model:       model,
 		description: description,
 		title:       title,
 	}
@@ -39,26 +39,24 @@ func (e ItemAdapter[T]) Title() string       { return e.title }
 func (e ItemAdapter[T]) Description() string { return e.description }
 func (e ItemAdapter[T]) FilterValue() string { return fmt.Sprintf("%s %s", e.title, e.description) }
 
-// Update implements [poly.Atomic].
-func (e ItemAdapter[T]) Update(msg tea.Msg) (poly.Atomic[T], tea.Cmd) {
-	return e.Atomic.Update(msg)
+// Update implements [tea.Model].
+func (e ItemAdapter[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return e.Model.Update(msg)
 }
 
-// View implements [poly.Atomic].
+// View implements [tea.Model].
 func (e ItemAdapter[T]) View() string {
-	return e.Atomic.View()
+	return e.Model.View()
 }
 
-var _ poly.ContextAware[any] = (*ItemAdapter[any])(nil)
+// Init implements [tea.Model].
+func (e ItemAdapter[T]) Init() tea.Cmd { return e.Model.Init() }
 
-// SetContext implements [poly.ContextAware].
+var _ atoms.ContextAware[any] = (*ItemAdapter[any])(nil)
+
+// SetContext implements [atoms.ContextAware].
 func (e *ItemAdapter[T]) SetContext(ctx T) {
-	if contextAware, ok := e.Atomic.(poly.ContextAware[T]); ok {
+	if contextAware, ok := e.Model.(atoms.ContextAware[T]); ok {
 		contextAware.SetContext(ctx)
 	}
-}
-
-// Init implements [poly.Initializer].
-func (e ItemAdapter[T]) Init() tea.Cmd {
-	return poly.OptionalInit(e.Atomic)
 }

@@ -1,11 +1,11 @@
-// Package menu is a simple menu system for selecting and activating [poly.Atomic]s.
+// Package menu is a simple menu system for selecting and activating [atoms.Atomic]s.
 package menu
 
 import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/poly"
+	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/router/multi"
 	"github.com/trippwill/polymer/trace"
 	"github.com/trippwill/polymer/util"
@@ -13,7 +13,8 @@ import (
 
 // Menu displays a list of [Item]s and activates the selected one.
 type Menu[X any] struct {
-	multi.Router[list.Model, poly.Atomic[X]]
+	atoms.WindowSizeInit
+	multi.Router[list.Model, tea.Model]
 	ctx X
 	id  string
 	log trace.Tracer
@@ -44,7 +45,7 @@ func NewMenu[X any](title string, items ...Item[X]) *Menu[X] {
 
 	id := util.NewUniqueId(title)
 	return &Menu[X]{
-		Router: multi.NewRouter[list.Model, poly.Atomic[X]](displayList, nil, multi.SlotT),
+		Router: multi.NewRouter[list.Model, tea.Model](displayList, nil, multi.SlotT),
 		id:     id,
 		log:    trace.NewTracerWithId(trace.CategoryMenu, id),
 	}
@@ -60,21 +61,18 @@ func (m *Menu[X]) ConfigureList(fn func(*list.Model)) {
 	}
 }
 
-// Id implements [poly.Identifier].
+// Id implements [atoms.Identifier].
 func (m Menu[X]) Id() string { return m.id }
 
-// Init implements [poly.Initializer].
-func (m Menu[X]) Init() tea.Cmd { return tea.WindowSize() }
-
-var _ poly.Atomic[any] = Menu[any]{}
-
-// SetContext implements [poly.ContextAware].
+// SetContext implements [atoms.ContextAware].
 func (m *Menu[X]) SetContext(context X) {
 	m.ctx = context
 }
 
-// Update implements [poly.Atomic].
-func (m Menu[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) {
+var _ tea.Model = Menu[any]{}
+
+// Update implements [tea.Model].
+func (m Menu[X]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.Router = m.ConfigureT(func(slot *list.Model) {
@@ -92,7 +90,7 @@ func (m Menu[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) {
 						return m, nil
 					}
 
-					if contextAware, ok := selected.(poly.ContextAware[X]); ok {
+					if contextAware, ok := selected.(atoms.ContextAware[X]); ok {
 						m.log.Trace("Setting context for selected item: %s", selected.Title())
 						contextAware.SetContext(m.ctx)
 					}
@@ -100,7 +98,7 @@ func (m Menu[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) {
 					m.Router = m.SetU(selected)
 					m.SetTarget(multi.SlotU)
 					m.log.Trace("Selected item: %s", selected.Title())
-					return m, poly.OptionalInit(selected)
+					return m, selected.Init()
 				}
 
 			case "esc":
@@ -119,7 +117,5 @@ func (m Menu[X]) Update(msg tea.Msg) (poly.Atomic[X], tea.Cmd) {
 	return m, cmd
 }
 
-// View implements [poly.Atomic].
-func (m Menu[X]) View() string {
-	return m.Render()
-}
+// View implements [tea.Model].
+func (m Menu[X]) View() string { return m.Render() }

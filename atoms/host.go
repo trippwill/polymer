@@ -1,4 +1,4 @@
-package poly
+package atoms
 
 import (
 	"log"
@@ -9,11 +9,11 @@ import (
 
 type Host[T any] struct {
 	name  string
-	state Atomic[T]
+	state tea.Model
 	log   trace.Tracer
 }
 
-func NewHost[T any](name string, root Atomic[T]) tea.Model {
+func NewHost[T any](name string, root tea.Model) tea.Model {
 	if root == nil {
 		panic("root state cannot be nil")
 	}
@@ -35,13 +35,13 @@ func (h Host[T]) Init() tea.Cmd {
 	return tea.Sequence(
 		tea.SetWindowTitle(h.name),
 		tea.WindowSize(),
-		OptionalInit(h.state),
+		h.state.Init(),
 	)
 }
 
 // Update implements [tea.Model].
 func (h Host[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	h.log.Trace("Host %s received message: %T", h.name, msg)
+	h.log.Trace("Host received message: %T {%v}", msg, msg)
 	switch msg := msg.(type) {
 	case error:
 		log.Fatal("Error in application:", msg)
