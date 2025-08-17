@@ -8,16 +8,6 @@ type NilInit struct{}
 // WindowSizeInit provides a default implementation of the [tea.Model] Init method.
 type WindowSizeInit struct{}
 
-// ContextAware is an interface for components that can set a context.
-type ContextAware[X any] interface {
-	SetContext(context X)
-}
-
-// ContextMsg is a message type that carries a context value.
-type ContextMsg[X any] struct {
-	Context X
-}
-
 // Identifier is for components that have a unique identifier.
 type Identifier interface {
 	Id() string

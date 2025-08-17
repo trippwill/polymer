@@ -19,33 +19,33 @@ func (m mockModel) View() string {
 }
 
 func TestRouter_GetAndSetTarget(t *testing.T) {
-	r := NewRouter(mockModel{"a"}, mockModel{"b"}, SlotT)
+	r := New(mockModel{"a"}, mockModel{"b"}, SlotA)
 
 	// Check initial target
-	if r.Target() != SlotT {
+	if r.Target() != SlotA {
 		t.Errorf("expected initial target to be SlotT, got %v", r.Target())
 	}
 
 	// Set new target
-	r.SetTarget(SlotU)
-	if r.Target() != SlotU {
+	r.SetTarget(SlotB)
+	if r.Target() != SlotB {
 		t.Errorf("expected target to be SlotU, got %v", r.Target())
 	}
 }
 
 func TestRouter_RouteAndRender(t *testing.T) {
-	r := NewRouter(mockModel{"a"}, mockModel{"b"}, SlotT)
+	r := New(mockModel{"a"}, mockModel{"b"}, SlotA)
 
-	// Route to SlotT
+	// Route to SlotA
 	r, _ = r.Route("foo")
-	if got := r.GetT().View(); got != "foo" {
-		t.Errorf("expected SlotT view 'foo', got '%s'", got)
+	if got := r.GetA().View(); got != "foo" {
+		t.Errorf("expected SlotA view 'foo', got '%s'", got)
 	}
 
-	r.SetTarget(SlotU)
+	r.SetTarget(SlotB)
 	r, _ = r.Route("bar")
-	if got := r.GetU().View(); got != "bar" {
-		t.Errorf("expected SlotU view 'bar', got '%s'", got)
+	if got := r.GetB().View(); got != "bar" {
+		t.Errorf("expected SlotB view 'bar', got '%s'", got)
 	}
 
 	if r.Render() != "bar" {

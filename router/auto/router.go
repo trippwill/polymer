@@ -2,7 +2,6 @@ package auto
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/trace"
 )
@@ -18,43 +17,28 @@ const (
 	SlotOverride
 )
 
-// Auto is a generic router that switches between two Routable components.
+// Router is a generic router that switches between two Routable components.
 // It displays the primary Routable unless the override Routable is set.
 // This is useful for workflows where a main view is temporarily replaced by an alternate view.
-type Auto[T router.Routable[T]] struct {
+type Router[T router.Routable[T]] struct {
 	primary  router.Routable[T]
 	override router.Routable[T]
 	log      trace.Tracer
 }
 
-// NewAuto constructs an Auto router with a primary and optional override Routable.
+// New constructs an Auto router with a primary and optional override Routable.
 // The primary Routable is shown unless the override is set.
-func NewAuto[T router.Routable[T]](prim, ovrd router.Routable[T]) Auto[T] {
-	return Auto[T]{
+func New[T router.Routable[T]](prim, ovrd router.Routable[T]) Router[T] {
+	return Router[T]{
 		primary:  prim,
 		override: ovrd,
 		log:      trace.NewTracer(trace.CategoryRouter),
 	}
 }
 
-// SetContext sets the context for both primary and override Routables if they implement atoms.ContextAware.
-func SetContext[T router.Routable[T], X any](auto *Auto[T], ctx X) {
-	if auto == nil {
-		return
-	}
-
-	if contextAware, ok := auto.primary.(atoms.ContextAware[X]); ok {
-		contextAware.SetContext(ctx)
-	}
-
-	if contextAware, ok := auto.override.(atoms.ContextAware[X]); ok {
-		contextAware.SetContext(ctx)
-	}
-}
-
 // Apply applies a function to the active Routable based on the specified slot,
 // returning the result of the function.
-func Apply[T router.Routable[T], U any](auto Auto[T], slot Slot, fn func(*T) U) U {
+func Apply[T router.Routable[T], U any](auto Router[T], slot Slot, fn func(*T) U) U {
 	switch slot {
 	case SlotPrimary:
 		if pt, ok := auto.primary.(T); ok {
@@ -72,7 +56,7 @@ func Apply[T router.Routable[T], U any](auto Auto[T], slot Slot, fn func(*T) U) 
 }
 
 // Active returns a value indicating which Routable is currently active.
-func (a Auto[T]) Active() Slot {
+func (a Router[T]) Active() Slot {
 	if a.override != nil {
 		return SlotOverride
 	}
@@ -84,7 +68,7 @@ func (a Auto[T]) Active() Slot {
 }
 
 // IsSet checks if the specified slot (primary or override) has a Routable set.
-func (a Auto[T]) IsSet(slot Slot) bool {
+func (a Router[T]) IsSet(slot Slot) bool {
 	switch slot {
 	case SlotPrimary:
 		return a.primary != nil
@@ -97,7 +81,7 @@ func (a Auto[T]) IsSet(slot Slot) bool {
 }
 
 // Set assigns a Routable to the specified slot (primary or override).
-func (a Auto[T]) Set(slot Slot, routable router.Routable[T]) Auto[T] {
+func (a Router[T]) Set(slot Slot, routable router.Routable[T]) Router[T] {
 	switch slot {
 	case SlotPrimary:
 		a.primary = routable
@@ -110,7 +94,7 @@ func (a Auto[T]) Set(slot Slot, routable router.Routable[T]) Auto[T] {
 }
 
 // SetIfNil assigns a Routable to the specified slot (primary or override) only if that slot is currently nil.
-func (a Auto[T]) SetIfNil(slot Slot, routable router.Routable[T]) Auto[T] {
+func (a Router[T]) SetIfNil(slot Slot, routable router.Routable[T]) Router[T] {
 	switch slot {
 	case SlotPrimary:
 		if a.primary == nil {
@@ -127,7 +111,7 @@ func (a Auto[T]) SetIfNil(slot Slot, routable router.Routable[T]) Auto[T] {
 }
 
 // Get retrieves the Routable from the specified slot (primary or override).
-func (a Auto[T]) Get(slot Slot) router.Routable[T] {
+func (a Router[T]) Get(slot Slot) router.Routable[T] {
 	switch slot {
 	case SlotPrimary:
 		return a.primary
@@ -140,7 +124,7 @@ func (a Auto[T]) Get(slot Slot) router.Routable[T] {
 }
 
 // Configure applies a configuration function to the Routable in the specified slot (primary or override).
-func (a Auto[T]) Configure(slot Slot, fn func(*T)) Auto[T] {
+func (a Router[T]) Configure(slot Slot, fn func(*T)) Router[T] {
 	if fn == nil {
 		a.log.Warn("No configuration function provided, skipping configuration")
 		return a
@@ -171,7 +155,7 @@ func configureRoutable[T router.Routable[T]](r router.Routable[T], fn func(*T)) 
 
 // Route sends a message to the active Routable (override if set, otherwise primary).
 // Returns the updated Auto and any resulting command.
-func (a Auto[T]) Route(msg tea.Msg) (Auto[T], tea.Cmd) {
+func (a Router[T]) Route(msg tea.Msg) (Router[T], tea.Cmd) {
 	a.log.Trace("Routing message %T", msg)
 
 	if a.override != nil {
@@ -193,7 +177,7 @@ func (a Auto[T]) Route(msg tea.Msg) (Auto[T], tea.Cmd) {
 }
 
 // Render returns the view of the active Routable (override if set, otherwise primary).
-func (a Auto[T]) Render() string {
+func (a Router[T]) Render() string {
 	if a.override != nil {
 		a.log.Trace("Rendering override Routable %T", a.override)
 		return a.override.View()

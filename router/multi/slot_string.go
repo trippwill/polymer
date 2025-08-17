@@ -9,14 +9,13 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[SlotSkip-0]
-	_ = x[SlotT-1]
-	_ = x[SlotU-2]
-	_ = x[SlotV-3]
+	_ = x[SlotA-1]
+	_ = x[SlotB-2]
 }
 
-const _Slot_name = "SlotSkipSlotTSlotUSlotV"
+const _Slot_name = "SlotSkipSlotASlotB"
 
-var _Slot_index = [...]uint8{0, 8, 13, 18, 23}
+var _Slot_index = [...]uint8{0, 8, 13, 18}
 
 func (i Slot) String() string {
 	if i >= Slot(len(_Slot_index)-1) {

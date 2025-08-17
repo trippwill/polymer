@@ -12,16 +12,15 @@ import (
 )
 
 // Menu displays a list of [Item]s and activates the selected one.
-type Menu[X any] struct {
+type Menu struct {
 	atoms.WindowSizeInit
 	multi.Router[list.Model, tea.Model]
-	ctx X
 	id  string
 	log trace.Tracer
 }
 
 // NewMenu creates a new [Menu] with the given title and items.
-func NewMenu[X any](title string, items ...Item[X]) *Menu[X] {
+func NewMenu(title string, items ...Item) *Menu {
 	listItems := make([]list.Item, len(items))
 	for i, item := range items {
 		listItems[i] = item
@@ -44,59 +43,49 @@ func NewMenu[X any](title string, items ...Item[X]) *Menu[X] {
 	}
 
 	id := util.NewUniqueId(title)
-	return &Menu[X]{
-		Router: multi.NewRouter[list.Model, tea.Model](displayList, nil, multi.SlotT),
+	return &Menu{
+		Router: multi.New[list.Model, tea.Model](displayList, nil, multi.SlotA),
 		id:     id,
 		log:    trace.NewTracerWithId(trace.CategoryMenu, id),
 	}
 }
 
 // ConfigureList configures the underlying list model of the Menu.
-func (m *Menu[X]) ConfigureList(fn func(*list.Model)) {
+func (m *Menu) ConfigureList(fn func(*list.Model)) {
 	if fn != nil {
 		m.log.Trace("Configuring list model with custom function")
-		m.Router = m.ConfigureT(fn)
+		m.Router = m.ConfigureA(fn)
 	} else {
 		m.log.Warn("No configuration function provided for list model")
 	}
 }
 
 // Id implements [atoms.Identifier].
-func (m Menu[X]) Id() string { return m.id }
+func (m Menu) Id() string { return m.id }
 
-// SetContext implements [atoms.ContextAware].
-func (m *Menu[X]) SetContext(context X) {
-	m.ctx = context
-}
-
-var _ tea.Model = Menu[any]{}
+var _ tea.Model = Menu{}
 
 // Update implements [tea.Model].
-func (m Menu[X]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.Router = m.ConfigureT(func(slot *list.Model) {
+		m.Router = m.ConfigureA(func(slot *list.Model) {
 			m.log.Trace("Updating window size for list model")
 			slot.SetSize(msg.Width, msg.Height)
 		})
 
 	case tea.KeyMsg:
-		if m.Target() == multi.SlotT {
+		if m.Target() == multi.SlotA {
 			switch msg.String() {
 			case "enter":
-				if selected, ok := m.GetT().(list.Model).SelectedItem().(Item[X]); ok {
+				if selected, ok := m.GetA().(list.Model).SelectedItem().(Item); ok {
 					if selected == nil {
 						m.log.Warn("Selected item is nil, cannot proceed")
 						return m, nil
 					}
 
-					if contextAware, ok := selected.(atoms.ContextAware[X]); ok {
-						m.log.Trace("Setting context for selected item: %s", selected.Title())
-						contextAware.SetContext(m.ctx)
-					}
-
-					m.Router = m.SetU(selected)
-					m.SetTarget(multi.SlotU)
+					m.Router = m.SetB(selected)
+					m.SetTarget(multi.SlotB)
 					m.log.Trace("Selected item: %s", selected.Title())
 					return m, selected.Init()
 				}
@@ -108,8 +97,8 @@ func (m Menu[X]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if !m.IsSet(multi.SlotU) {
-		m.SetTarget(multi.SlotT)
+	if !m.IsSet(multi.SlotB) {
+		m.SetTarget(multi.SlotA)
 	}
 
 	var cmd tea.Cmd
@@ -118,4 +107,4 @@ func (m Menu[X]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View implements [tea.Model].
-func (m Menu[X]) View() string { return m.Render() }
+func (m Menu) View() string { return m.Render() }

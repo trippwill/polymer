@@ -7,7 +7,6 @@ type Slot uint8
 
 const (
 	SlotSkip Slot = iota // Skip: no slot handles the message.
-	SlotT
-	SlotU
-	SlotV
+	SlotA
+	SlotB
 )

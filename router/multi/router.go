@@ -2,137 +2,121 @@ package multi
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/trace"
 	"github.com/trippwill/polymer/util"
 )
 
-// Router holds two router.Routable types and routes messages to one.
-type Router[T router.Routable[T], U router.Routable[U]] struct {
-	slotT  router.Routable[T]
-	slotU  router.Routable[U]
+// Router holds two [router.Routable] types and routes messages to one.
+type Router[A router.Routable[A], B router.Routable[B]] struct {
+	slotA  router.Routable[A]
+	slotB  router.Routable[B]
 	target Slot
 	log    trace.Tracer
 }
 
-// NewRouter returns a Routed with the given router.Routables and initial target.
-func NewRouter[T router.Routable[T], U router.Routable[U]](
-	slotT router.Routable[T],
-	slotU router.Routable[U],
+// New returns a [Router] with the given [router.Routable]s and initial target.
+func New[A router.Routable[A], B router.Routable[B]](
+	slotA router.Routable[A],
+	slotB router.Routable[B],
 	initialTarget Slot,
-) Router[T, U] {
-	return Router[T, U]{
-		slotT:  slotT,
-		slotU:  slotU,
+) Router[A, B] {
+	return Router[A, B]{
+		slotA:  slotA,
+		slotB:  slotB,
 		target: initialTarget,
 		log:    trace.NewTracer(trace.CategoryRouter),
 	}
 }
 
-// SetContext sets the context for both SlotT and SlotU if they implement atoms.ContextAware.
-func SetContext[T router.Routable[T], U router.Routable[U], X any](r *Router[T, U], ctx X) {
-	if r == nil {
-		return
-	}
-
-	if contextAware, ok := r.slotT.(atoms.ContextAware[X]); ok {
-		contextAware.SetContext(ctx)
-	}
-
-	if contextAware, ok := r.slotU.(atoms.ContextAware[X]); ok {
-		contextAware.SetContext(ctx)
-	}
-}
-
 // SetTarget sets the active slot.
-func (r *Router[T, U]) SetTarget(slot Slot) {
-	r.log.Trace("Setting target slot to %s T:%T U:%T", slot, r.slotT, r.slotU)
+func (r *Router[A, B]) SetTarget(slot Slot) {
+	r.log.Trace("Setting target slot to %s T:%T U:%T", slot, r.slotA, r.slotB)
 	r.target = slot
 }
 
 // GetTarget returns the current target slot.
-func (r Router[T, U]) Target() Slot {
+func (r Router[A, B]) Target() Slot {
 	return r.target
 }
 
-// GetT returns the SlotT router.Routable.
-func (r Router[T, U]) GetT() router.Routable[T] { return r.slotT }
+// GetA returns the SlotA [router.Routable].
+func (r Router[A, B]) GetA() router.Routable[A] { return r.slotA }
 
-// GetU returns the SlotU router.Routable.
-func (r Router[T, U]) GetU() router.Routable[U] { return r.slotU }
+// GetB returns the SlotB [router.Routable].
+func (r Router[A, B]) GetB() router.Routable[B] { return r.slotB }
 
-// SetT sets the SlotT router.Routable to the provided value.
-func (r Router[T, U]) SetT(value router.Routable[T]) Router[T, U] {
-	r.log.Trace("Setting SlotT to %T", value)
-	r.slotT = value
+// SetA sets the SlotA [router.Routable] to the provided value.
+func (r Router[A, B]) SetA(value router.Routable[A]) Router[A, B] {
+	r.log.Trace("Setting SlotA to %T", value)
+	r.slotA = value
 	return r
 }
 
-// SetU sets the SlotU router.Routable to the provided value.
-func (r Router[T, U]) SetU(value router.Routable[U]) Router[T, U] {
-	r.log.Trace("Setting SlotU to %T", value)
-	r.slotU = value
+// SetB sets the SlotB [router.Routable] to the provided value.
+func (r Router[A, B]) SetB(value router.Routable[B]) Router[A, B] {
+	r.log.Trace("Setting SlotB to %T", value)
+	r.slotB = value
 	return r
 }
 
-func (r Router[T, U]) IsSet(slot Slot) bool {
+func (r Router[A, B]) IsSet(slot Slot) bool {
 	switch slot {
-	case SlotT:
-		return r.slotT != nil
-	case SlotU:
-		return r.slotU != nil
+	case SlotA:
+		return r.slotA != nil
+	case SlotB:
+		return r.slotB != nil
 	default:
 		r.log.Debug("Unknown slot: %v", slot)
 		return false
 	}
 }
 
-// ConfigureT applies a function to the SlotT router.Routable.
-func (r Router[T, U]) ConfigureT(fn func(slot *T)) Router[T, U] {
-	r.log.Trace("Applying function to SlotT of type %T", r.slotT)
-	if t, ok := r.slotT.(T); ok {
-		fn(&t)
-		r.slotT = t
+// ConfigureA applies a function to the SlotA router.Routable.
+func (r Router[A, B]) ConfigureA(fn func(slot *A)) Router[A, B] {
+	r.log.Trace("Applying function to SlotA of type %T", r.slotA)
+	if a, ok := r.slotA.(A); ok {
+		fn(&a)
+		r.slotA = a
 	} else {
-		r.log.Debug("SlotT is nil, applying function to nil")
-		var t T
-		fn(&t)
-		r.slotT = t
+		r.log.Debug("SlotA is nil, applying function to nil")
+		var a A
+		fn(&a)
+		r.slotA = a
 	}
 	return r
 }
 
-// ConfigureU applies a function to the SlotU router.Routable.
-func (r Router[T, U]) ConfigureU(fn func(slot *U)) Router[T, U] {
-	r.log.Trace("Applying function to SlotU of type %T", r.slotU)
-	if u, ok := r.slotU.(U); ok {
-		fn(&u)
-		r.slotU = u
+// ConfigureB applies a function to the SlotB router.Routable.
+func (r Router[A, B]) ConfigureB(fn func(slot *B)) Router[A, B] {
+	r.log.Trace("Applying function to SlotB of type %T", r.slotB)
+	if b, ok := r.slotB.(B); ok {
+		fn(&b)
+		r.slotB = b
 	} else {
-		r.log.Debug("SlotU is nil, applying function to nil")
-		var u U
-		fn(&u)
-		r.slotU = u
+		r.log.Debug("SlotB is nil, applying function to nil")
+		var b B
+		fn(&b)
+		r.slotB = b
 	}
 	return r
 }
 
 // Route sends the message to the active router.Routable.
-func (r Router[T, U]) Route(msg tea.Msg) (Router[T, U], tea.Cmd) {
+func (r Router[A, B]) Route(msg tea.Msg) (Router[A, B], tea.Cmd) {
 	switch r.target {
-	case SlotT:
-		r.log.Trace("Routing message to SlotT of type %T", r.slotT)
-		if r.slotT != nil {
+	case SlotA:
+		r.log.Trace("Routing message to SlotA of type %T", r.slotA)
+		if r.slotA != nil {
 			var cmd tea.Cmd
-			r.slotT, cmd = r.slotT.Update(msg)
+			r.slotA, cmd = r.slotA.Update(msg)
 			return r, cmd
 		}
-	case SlotU:
-		r.log.Trace("Routing message to SlotU of type %T", r.slotU)
-		if r.slotU != nil {
+	case SlotB:
+		r.log.Trace("Routing message to SlotB of type %T", r.slotB)
+		if r.slotB != nil {
 			var cmd tea.Cmd
-			r.slotU, cmd = r.slotU.Update(msg)
+			r.slotB, cmd = r.slotB.Update(msg)
 			return r, cmd
 		}
 	default:
@@ -145,17 +129,17 @@ func (r Router[T, U]) Route(msg tea.Msg) (Router[T, U], tea.Cmd) {
 }
 
 // Render returns the active router.Routable's view.
-func (r Router[T, U]) Render() string {
+func (r Router[A, B]) Render() string {
 	switch r.target {
-	case SlotT:
-		r.log.Trace("Rendering SlotT of type %T", r.slotT)
-		if r.slotT != nil {
-			return r.slotT.View()
+	case SlotA:
+		r.log.Trace("Rendering SlotA of type %T", r.slotA)
+		if r.slotA != nil {
+			return r.slotA.View()
 		}
-	case SlotU:
-		r.log.Trace("Rendering SlotU of type %T", r.slotU)
-		if r.slotU != nil {
-			return r.slotU.View()
+	case SlotB:
+		r.log.Trace("Rendering SlotB of type %T", r.slotB)
+		if r.slotB != nil {
+			return r.slotB.View()
 		}
 	}
 

@@ -26,7 +26,7 @@ func (m testModel) View() string { return "val=" + fmt.Sprint(m.val) }
 func TestAutoBasic(t *testing.T) {
 	prim := testModel{val: 1}
 	ovrd := testModel{val: 10}
-	a := auto.NewAuto(prim, nil)
+	a := auto.New(prim, nil)
 
 	assert.Equal(t, auto.SlotPrimary, a.Active())
 	assert.Equal(t, "val=1", a.Render())
@@ -46,7 +46,7 @@ func TestAutoBasic(t *testing.T) {
 }
 
 func TestAutoConfigure(t *testing.T) {
-	a := auto.NewAuto(testModel{}, nil)
+	a := auto.New(testModel{}, nil)
 	a = a.Configure(auto.SlotPrimary, func(m *testModel) { m.val = 42 })
 	assert.Equal(t, "val=42", a.Render())
 

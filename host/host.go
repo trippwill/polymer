@@ -1,4 +1,4 @@
-package atoms
+package host
 
 import (
 	"log"
@@ -7,18 +7,18 @@ import (
 	"github.com/trippwill/polymer/trace"
 )
 
-type Host[T any] struct {
+type Host struct {
 	name  string
 	state tea.Model
 	log   trace.Tracer
 }
 
-func NewHost[T any](name string, root tea.Model) tea.Model {
+func New(name string, root tea.Model) tea.Model {
 	if root == nil {
 		panic("root state cannot be nil")
 	}
 
-	host := &Host[T]{
+	host := &Host{
 		name:  name,
 		state: root,
 		log:   trace.NewTracer(trace.CategoryHost),
@@ -27,31 +27,24 @@ func NewHost[T any](name string, root tea.Model) tea.Model {
 	return host
 }
 
-var _ tea.Model = Host[any]{}
+var _ tea.Model = Host{}
 
 // Init implements [tea.Model].
-func (h Host[T]) Init() tea.Cmd {
+func (h Host) Init() tea.Cmd {
 	h.log.Info(">>>> Initializing host: " + h.name)
 	return tea.Sequence(
 		tea.SetWindowTitle(h.name),
-		tea.WindowSize(),
 		h.state.Init(),
 	)
 }
 
 // Update implements [tea.Model].
-func (h Host[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (h Host) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	h.log.Trace("Host received message: %T {%v}", msg, msg)
 	switch msg := msg.(type) {
 	case error:
 		log.Fatal("Error in application:", msg)
-	case *ContextMsg[T]:
-		if contextAware, ok := h.state.(ContextAware[T]); ok {
-			h.log.Debug("Host %s received context message: %v", h.name, msg.Context)
-			contextAware.SetContext(msg.Context)
-		} else {
-			h.log.Warn("Host %s received context message but state is nil, ignoring.", h.name)
-		}
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -70,7 +63,7 @@ func (h Host[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View implements [tea.Model].
-func (h Host[T]) View() string {
+func (h Host) View() string {
 	if h.state == nil {
 		h.log.Warn("Host %s state is nil, returning empty view.", h.name)
 		return ""
