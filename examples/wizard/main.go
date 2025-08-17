@@ -9,7 +9,7 @@ import (
 	"github.com/trippwill/polymer/atoms"
 	"github.com/trippwill/polymer/gels/menu"
 	"github.com/trippwill/polymer/host"
-	"github.com/trippwill/polymer/router/auto"
+	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/util"
 )
 
@@ -80,7 +80,7 @@ func (g *GreetingScreen) SetContext(ctx string) {
 
 type app struct {
 	atoms.NilInit
-	auto.Router[tea.Model]        // Router to manage screens
+	router.Auto[tea.Model]        // Router to manage screens
 	id                     string // Unique identifier for the app
 }
 
@@ -92,25 +92,25 @@ func NewApp() app {
 	)
 
 	return app{
-		Router: auto.New(menu, nil),
-		id:     util.NewUniqeTypeId[app](),
+		Auto: router.NewAuto(menu, nil),
+		id:   util.NewUniqeTypeId[app](),
 	}
 }
 
 func (a app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if name, ok := msg.(host.ContextMsg[string]); ok {
 		greetingScreen := NewGreetingScreen(*name.Context)
-		a.Router = a.Set(auto.SlotOverride, greetingScreen)
+		a.Auto = a.Set(router.AutoSlotOverride, greetingScreen)
 		return a, nil
 	}
 
-	a.Router = a.Set(auto.SlotOverride, nil)
+	a.Auto = a.Set(router.AutoSlotOverride, nil)
 
 	var cmd tea.Cmd
-	a.Router, cmd = a.Route(msg)
+	a.Auto, cmd = a.Route(msg)
 
 	// The menu has quit
-	if !a.IsSet(auto.SlotPrimary) {
+	if !a.IsSet(router.AutoSlotPrimary) {
 		return a, tea.Quit
 	}
 

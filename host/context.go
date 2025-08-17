@@ -61,5 +61,12 @@ func (h *ContextHost[X]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h.ctx = msg.Context
 	}
 
-	return h.Host.Update(msg)
+	var cmd tea.Cmd
+	next, cmd := h.Host.Update(msg)
+	if host, ok := next.(Host); ok {
+		h.Host = host
+	} else {
+		panic("Host must be of type Host")
+	}
+	return h, cmd
 }

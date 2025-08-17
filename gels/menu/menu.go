@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/trippwill/polymer/atoms"
-	"github.com/trippwill/polymer/router/multi"
+	"github.com/trippwill/polymer/router"
 	"github.com/trippwill/polymer/trace"
 	"github.com/trippwill/polymer/util"
 )
@@ -14,7 +14,7 @@ import (
 // Menu displays a list of [Item]s and activates the selected one.
 type Menu struct {
 	atoms.WindowSizeInit
-	multi.Router[list.Model, tea.Model]
+	router.Dual[list.Model, tea.Model]
 	id  string
 	log trace.Tracer
 }
@@ -44,9 +44,9 @@ func NewMenu(title string, items ...Item) *Menu {
 
 	id := util.NewUniqueId(title)
 	return &Menu{
-		Router: multi.New[list.Model, tea.Model](displayList, nil, multi.SlotA),
-		id:     id,
-		log:    trace.NewTracerWithId(trace.CategoryMenu, id),
+		Dual: router.NewDual[list.Model, tea.Model](displayList, nil, router.DualSlotA),
+		id:   id,
+		log:  trace.NewTracerWithId(trace.CategoryMenu, id),
 	}
 }
 
@@ -54,7 +54,7 @@ func NewMenu(title string, items ...Item) *Menu {
 func (m *Menu) ConfigureList(fn func(*list.Model)) {
 	if fn != nil {
 		m.log.Trace("Configuring list model with custom function")
-		m.Router = m.ConfigureA(fn)
+		m.Dual = m.ConfigureA(fn)
 	} else {
 		m.log.Warn("No configuration function provided for list model")
 	}
@@ -69,13 +69,13 @@ var _ tea.Model = Menu{}
 func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.Router = m.ConfigureA(func(slot *list.Model) {
+		m.Dual = m.ConfigureA(func(slot *list.Model) {
 			m.log.Trace("Updating window size for list model")
 			slot.SetSize(msg.Width, msg.Height)
 		})
 
 	case tea.KeyMsg:
-		if m.Target() == multi.SlotA {
+		if m.Target() == router.DualSlotA {
 			switch msg.String() {
 			case "enter":
 				if selected, ok := m.GetA().(list.Model).SelectedItem().(Item); ok {
@@ -84,8 +84,8 @@ func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					}
 
-					m.Router = m.SetB(selected)
-					m.SetTarget(multi.SlotB)
+					m.Dual = m.SetB(selected)
+					m.SetTarget(router.DualSlotB)
 					m.log.Trace("Selected item: %s", selected.Title())
 					return m, selected.Init()
 				}
@@ -97,12 +97,12 @@ func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if !m.IsSet(multi.SlotB) {
-		m.SetTarget(multi.SlotA)
+	if !m.IsSet(router.DualSlotB) {
+		m.SetTarget(router.DualSlotA)
 	}
 
 	var cmd tea.Cmd
-	m.Router, cmd = m.Route(msg)
+	m.Dual, cmd = m.Route(msg)
 	return m, cmd
 }
 
